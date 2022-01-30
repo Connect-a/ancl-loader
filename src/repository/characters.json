@@ -1,0 +1,52 @@
+[
+  {
+    "id": "N01JIW",
+    "name": "創造主",
+    "hasStandingPicture": true
+  },
+  {
+    "id": "N02VMC",
+    "name": "シスター",
+    "hasStandingPicture": false
+  },
+  {
+    "id": "N03HWB",
+    "name": "サタン",
+    "hasStandingPicture": true
+  },
+  {
+    "id": "N04VTA",
+    "name": "1号",
+    "hasStandingPicture": true
+  },
+  {
+    "id": "N05XDT",
+    "name": "2号",
+    "hasStandingPicture": true
+  },
+  {
+    "id": "N06BIQ",
+    "name": "3号",
+    "hasStandingPicture": true
+  },
+  {
+    "id": "N09BVS",
+    "name": "オル",
+    "hasStandingPicture": false
+  },
+  {
+    "id": "N10PRV",
+    "name": "ロス",
+    "hasStandingPicture": false
+  },
+  {
+    "id": "N16QCQ",
+    "name": "ギルド受付嬢２",
+    "hasStandingPicture": false
+  },
+  {
+    "id": "N26RST",
+    "name": "ギルド受付嬢",
+    "hasStandingPicture": false
+  }
+]
