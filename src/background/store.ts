@@ -1,10 +1,11 @@
 import * as browser from 'webextension-polyfill';
-import { AllStories, BattleEvent, Characters, Enemy, InitData, Radio, Voice } from '@/@types';
+import { AllStories, AdditionalStory, BattleEvent, Characters, Enemy, InitData, Radio, Voice } from '@/@types';
 
 //
 let token: string | undefined = undefined;
 let initData: InitData | undefined = undefined;
 let stories!: AllStories | undefined;
+let additionalStories = new Array<AdditionalStory>();
 let characters: Characters | undefined;
 let enemies: Enemy | undefined;
 let voices: Set<Voice> | undefined;
@@ -19,6 +20,8 @@ export const handleMessage = (message: any) => {
     case "getInitData": return initData;
     case "setStories": return stories = message.data;
     case "getStories": return stories;
+    case "setAdditionalStories": return additionalStories = message.data;
+    case "getAdditionalStories": return additionalStories;
     case "setCharacters": return characters = message.data;
     case "getCharacters": return characters;
     case "setEnemy": return enemies = message.data;

@@ -24,6 +24,13 @@ export type AllStories = {
   event: { section: Sections, story: Stories; };
 };
 
+export type AdditionalStory = {
+  charaId: string,
+  charaName: string,
+  stid: number,
+  storyId: string
+}
+
 // キャラクター
 export type Character = {
   chara_id: string,
@@ -236,11 +243,11 @@ export type BattleEvent = {
 
 // ラジオ
 export type Radio = {
-  radio_guide:{
-    [index:string]:{
-      start:string,
-      end:string,
-      name:string,
+  radio_guide: {
+    [index: string]: {
+      start: string,
+      end: string,
+      name: string,
       list: Array<string>
     }
   }

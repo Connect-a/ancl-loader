@@ -116,10 +116,10 @@ const downloadRadio = async () => {
   const radio = await browser.runtime.sendMessage({ type: "getRadio" }) as Radio;
 
   // 番組表取得
+  const getHashCode = (e: any) => Array.from(e ? JSON.stringify(e) : "")
+    .reduce((e, t) => ((e << 5) - e + t.charCodeAt(0) | 0), 0);
+  const query = `?h=${(new Date).getTime()}${getHashCode(radio.radio_guide)}`;
   {
-    const getHashCode = (e: any) => Array.from(e ? JSON.stringify(e) : "")
-      .reduce((e, t) => ((e << 5) - e + t.charCodeAt(0) | 0), 0);
-    const query = `?h=${(new Date).getTime()}${getHashCode(radio.radio_guide)}`;
     const r = await fetch(`https://ancl.jp/img/game/asset/radio/list.jpg${query}`);
     if (r.ok) dir.file("_番組表.jpg", r.blob());
   }
@@ -132,7 +132,7 @@ const downloadRadio = async () => {
     })));
   const promises = new Array<Promise<Response>>();
   for (const p of programs) {
-    promises.push(fetch(`https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=${p.name}_radio?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`, {
+    promises.push(fetch(`https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=radio_${p.name}_${query.split("=")[1]}?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`, {
       method: 'GET',
       mode: 'no-cors',
       cache: 'no-cache',
@@ -178,7 +178,6 @@ const downloadImages = async () => {
       cache: 'no-cache',
       credentials: 'same-origin'
     });
-    console.log(r.ok, r.status, r.statusText, r);
     if (r.ok) imagesDir.file(i.name, r.blob());
   }
 
@@ -255,7 +254,6 @@ const downloadImages = async () => {
     <!-- ラジオ -->
     <v-list-item>
       <v-list-item-avatar :style="{ height: '90px', width: '90px' }">
-        -->
         <v-img
           src="https://ancl.jp/game/client/pc/res/raw-assets/d9/d9506b81-d0a5-48c6-89cc-44e0638a17b9.78a49.png"
         ></v-img>
@@ -297,7 +295,7 @@ const downloadImages = async () => {
           color="success"
           :disabled="status !== ''"
         >{{ workingId === 'images' ? status : 'ダウンロード' }}</v-btn>
-      </v-list-item-action> -->
+      </v-list-item-action>-->
     </v-list-item>
   </v-list>
 </template>

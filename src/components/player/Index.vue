@@ -77,11 +77,13 @@ const selectImage = async () => {
   const t = await images.find(x => x.name === imageTarget.value)?.file;
   if (!t) return;
   imageElement.src = (await blobToBase64(t)).replace("application/octet-stream", `image/${imageTarget.value.split('.').pop()}`);
-  imageElement.style.display = "initial";
+  const parent = imageElement.parentElement;
+  if (parent) parent.style.display = "initial";
 }
 const clearImage = async () => {
   const imageElement = document.getElementById("image-sample") as HTMLImageElement;
-  imageElement.style.display = "none";
+  const parent = imageElement.parentElement;
+  if (parent) parent.style.display = "none";
 }
 
 const audioTarget = ref("");
@@ -138,7 +140,6 @@ const loadSpine = async (data: { json: string, atlas: string, png: Blob | null }
   const parent = player.parentElement;
   if (parent) parent.style.display = "initial";
 
-  player.style.width = "320px";
   player.style.height = "320px";
 
   data.atlas = data.atlas.replace("skeleton.png", (await blobToBase64(data.png)).replace("application/octet-stream", "image/png"));
@@ -309,9 +310,6 @@ const updateMediaSettings = (id: string) => {
 
   const v = document.getElementById(id) as HTMLMediaElement;
 
-  console.log(id, media.repeat, v.getAttribute("repeat"))
-
-
   mediaDurationMap.set(id, v.duration);
   v.playbackRate = media.rate ?? 1;
   v.setAttribute('cutStart', media.cutStart?.toString() ?? 0);
@@ -334,7 +332,6 @@ const togglePlay = (id: string) => {
   v.pause();
 }
 const fullscreen = (id: string) => (document.getElementById(id) as HTMLVideoElement).requestFullscreen();
-const isControlsShown = (id: string) => (document.getElementById(id) as HTMLVideoElement)?.controls ?? false;
 </script>
 
 <template>
@@ -499,8 +496,13 @@ const isControlsShown = (id: string) => (document.getElementById(id) as HTMLVide
       <v-col style="display:none;">
         <div id="spine-player"></div>
       </v-col>
-      <v-col>
-        <img v-show="imageTarget" id="image-sample" alt="画像サンプル" style="width:100%;" />
+      <v-col style="display:none;">
+        <img
+          v-show="imageTarget"
+          id="image-sample"
+          alt="画像サンプル"
+          style="max-height:320px;"
+        />
       </v-col>
     </v-row>
 
@@ -527,11 +529,7 @@ const isControlsShown = (id: string) => (document.getElementById(id) as HTMLVide
         </video>
         <v-card color="green" class="d-inline-block">
           <v-card-text class="d-flex flex-column">
-            <v-btn
-              small
-              @click="toggleControll(media.name)"
-              :color="isControlsShown(media.name) ? 'green' : 'grey'"
-            >コントロール表示</v-btn>
+            <v-btn small @click="toggleControll(media.name)" color="grey">コントロール表示切替</v-btn>
             <label>
               先頭カット
               <input
@@ -573,6 +571,7 @@ const isControlsShown = (id: string) => (document.getElementById(id) as HTMLVide
     <v-row v-show="storySources && storySources.size">
       <v-col cols="6">
         <v-card>
+          <v-card-title>◆ストーリー</v-card-title>
           <v-card-text>
             <select
               v-model="targetStory"

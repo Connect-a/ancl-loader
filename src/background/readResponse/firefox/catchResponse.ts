@@ -19,11 +19,8 @@ export default (() => {
     (req) => {
       requestBodies.set(req.requestId, req.requestBody);
       const filter = browser.webRequest.filterResponseData(req.requestId);
-      console.log(filter);
 
       filter.ondata = (event) => {
-        console.log(`--- えべんと`);
-        console.log(event);
         responseBodies.set(req.requestId, event.data);
       };
       return Promise.resolve({});
@@ -56,15 +53,9 @@ export default (() => {
     const isHtml = contentType.value?.toLowerCase().startsWith(HTML_TYPE);
     if (!isMsgpack && !isJson && !isHtml) return;
 
-    // if (!res.url.includes('start')) return;
-    // console.log(`---startきたよ\n${contentType.value}\n${!isMsgpack && !isJson && !isHtml}\n${res.url}`);
-
-    const res2 = responseBodies.get(res.requestId);
-    console.log(responseBodies);
     const body = requestBodies.get(res.requestId);
     if (body?.raw?.length) {
       const obj = decode(body.raw[0].bytes);
-      console.log(obj);
     }
   }
     , { urls: ["<all_urls>"] });

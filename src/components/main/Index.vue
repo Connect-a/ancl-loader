@@ -3,7 +3,7 @@ import { computed, reactive, ref } from 'vue';
 import * as browser from "webextension-polyfill";
 import JSZip from 'jszip';
 import dayjs from 'dayjs';
-import { Characters, AllStories, Character } from "@/@types";
+import { Characters, AllStories, AdditionalStory, Character } from "@/@types";
 import { downloadCharacter } from '@/repository/downloadCharacter';
 import { getCharacterStory, getEnableStidMap } from '@/repository/downloadCharaStory';
 import { downloadStory, fillStoryData } from '@/repository/downloadStory';
@@ -11,6 +11,24 @@ import { downloadStory, fillStoryData } from '@/repository/downloadStory';
 type DownloadHistory = { id: string, date: string }
 
 const search = ref("");
+const additional = ref("");
+const loadAdditionalChara = async () => {
+  const charaList = additional.value.split("\n");
+  if (charaList.length <= 1) return;
+  const data = charaList.map(x => {
+    const s = x.split("_");
+    return {
+      charaId: s[0],
+      charaName: s[1],
+      stid: Number(s[2]),
+      storyId: s[3]
+    } as AdditionalStory
+  });
+  await browser.runtime.sendMessage({ type: "setAdditionalStories", data });
+  enableStidMap = await getEnableStidMap();
+  search.value = "";
+}
+
 let status = ref("");
 let workingCharaId = ref("");
 const key_downloadHistory = "downloadHistory";
@@ -27,7 +45,7 @@ const items = computed(() => {
     .filter(x => x.chara_id !== "000000");
 });
 
-const enableStidMap = await getEnableStidMap();
+let enableStidMap = await getEnableStidMap();
 
 const download = async (character: Character) => {
   status.value = "開始中…";
@@ -114,6 +132,10 @@ const download = async (character: Character) => {
   </v-card>
   <!-- 検索 -->
   <v-text-field v-model="search" label="キャラ名検索" outlined dense class="ma-3" />
+  <template v-if="search === 'opensesame'">
+    <v-textarea v-model="additional"></v-textarea>
+    <v-btn @click="loadAdditionalChara">ロード</v-btn>
+  </template>
   <!-- リスト -->
   <v-list three-line v-if="state.characters?.chara_data && state.stories?.chara?.story">
     <v-list-item v-for="item of items">

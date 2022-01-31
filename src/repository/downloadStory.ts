@@ -1,6 +1,6 @@
 import * as browser from "webextension-polyfill";
 import JSZip from "jszip";
-import { AllStories, Character, InitData, Section, Story, StoryElement, Voice } from "@/@types";
+import { AdditionalStory, AllStories, Character, InitData, Section, Story, StoryElement, Voice } from "@/@types";
 import { decode, encode } from "@msgpack/msgpack";
 
 // 有効なst_idを返却
@@ -35,11 +35,13 @@ export const getStory = async (sectionId: string) => {
 }
 
 export const fillStoryData = async (stories: Array<Story>, enableStidMap: Map<number, Story>) => {
+  const additionalStories: Array<AdditionalStory> = await browser.runtime.sendMessage({ type: "getAdditionalStories" });
   return stories
     .filter(x => enableStidMap.has(x.st_id))
     .map(async story => ({
       ...story,
-      storyId: await fetchStoryId(story.st_id)
+      storyId: additionalStories.find(x => x.stid === story.st_id)?.storyId
+        ?? await fetchStoryId(story.st_id)
     }))
     .filter(async x => (await x).storyId)
     .map(async story => {
@@ -101,7 +103,7 @@ export const downloadStory = async (
       const choises = [e.choice1, e.choice2, e.choice3];
       let choiseText = "";
       for (const c of choises) choiseText += `>${c}\n`;
-      choiseText = choiseText.replaceAll(">\n","");
+      choiseText = choiseText.replaceAll(">\n", "");
       if (choiseText) text += `\n${choiseText}\n`;
 
       prevElement = e;
