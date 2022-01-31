@@ -1,5 +1,5 @@
 import * as browser from "webextension-polyfill";
-import { AllStories, Character, InitData, Story, StoryElement, Voice } from "@/@types";
+import { AdditionalStory, AllStories, Character, InitData } from "@/@types";
 
 // 有効なst_idを返却
 export const getEnableStidMap = async () => {
@@ -8,12 +8,17 @@ export const getEnableStidMap = async () => {
   if (!stories) return new Map();
   if (!initData) return new Map();
 
+  const additionalStories: Array<AdditionalStory> = await browser.runtime.sendMessage({ type: "getAdditionalStories" });
   return new Map(Object.entries(stories.chara.story)
-    .filter(([charaId, stories]) => initData.result.player_data.chara[charaId])
     .flatMap(
       ([charaId, stories]) =>
         stories
-          .filter(s => s.order <= initData.result.player_data.story.chara[charaId])
+          .filter(s => {
+            if (additionalStories.find(x => x.stid === s.st_id)) return true;
+            const like = initData.result.player_data.story.chara[charaId];
+            if (!like) return false;
+            return s.order <= like;
+          })
           .map(s => [s.st_id, s])))
 }
 

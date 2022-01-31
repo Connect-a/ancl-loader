@@ -72,7 +72,6 @@ chrome.debugger.onEvent.addListener((source, method, params: any) => {
 
           if (isMsgpack) {
             const decodedResponse: any = decode(Uint8Array.from(Array.from(response.body as string).map(c => c.charCodeAt(0))));
-            console.log(`♪decodedResponse`, url, decodedResponse)
             if (url.includes(url_character)) {
               if (handleMessage({ type: "getCharacters" })) return;
               handleMessage({ type: "setCharacters", data: decodedResponse });
