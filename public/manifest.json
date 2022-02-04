@@ -1,7 +1,7 @@
 {
   "name": "エンクリローダー",
   "description": "エンジェリックリンクの非公式リソースローダー",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "manifest_version": 2,
   "permissions": [
     "*://pc-play.games.dmm.co.jp/play/angelicr/*",
@@ -10,7 +10,8 @@
     "webNavigation"
   ],
   "icons": {
-    "16": "icon.png"
+    "16": "icon.png",
+    "48": "icon.png"
   },
   "content_scripts": [
     {

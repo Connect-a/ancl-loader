@@ -77,14 +77,10 @@ const selectImage = async () => {
   const t = await images.find(x => x.name === imageTarget.value)?.file;
   if (!t) return;
   imageElement.src = (await blobToBase64(t)).replace("application/octet-stream", `image/${imageTarget.value.split('.').pop()}`);
-  const parent = imageElement.parentElement;
-  if (parent) parent.style.display = "initial";
 }
-const clearImage = async () => {
-  const imageElement = document.getElementById("image-sample") as HTMLImageElement;
-  const parent = imageElement.parentElement;
-  if (parent) parent.style.display = "none";
-}
+const clearImage = () => (imageTarget.value = "");
+const expandImage = ref(false);
+const showImageChecker = ref(true);
 
 const audioTarget = ref("");
 const audioElemet = document.createElement('audio') as HTMLAudioElement;
@@ -115,6 +111,21 @@ const playAllAudio = async () => {
   play(0);
 }
 
+// ストーリー
+const floatStory = ref(false);
+const storyStyle = reactive({
+  position: 'fixed',
+  marginTop: '64px',
+  top: '',
+  right: '',
+  bottom: '10px',
+  left: '10px',
+  width: '500px',
+  opacity: '1',
+  resize: "horizontal"
+} as CSSStyleDeclaration);
+const storyFontSize = ref(1);
+
 // SDアニメーション
 const skeletons = reactive(new Map<string, { json: string, atlas: string, png: Blob | null }>());
 const skeletonTarget = ref("");
@@ -129,19 +140,16 @@ const clearSpine = () => {
   const player = document.getElementById("spine-player");
   if (!player) return;
   while (player.firstChild) player.firstChild.remove();
-  const parent = player.parentElement;
-  if (parent) parent.style.display = "none";
+  skeletonTarget.value = "";
 }
+
 const loadSpine = async (data: { json: string, atlas: string, png: Blob | null }) => {
   if (data.png === null) return;
+  const buf = skeletonTarget.value;
   clearSpine();
+  skeletonTarget.value = buf;
   const player = document.getElementById("spine-player");
   if (!player) return;
-  const parent = player.parentElement;
-  if (parent) parent.style.display = "initial";
-
-  player.style.height = "320px";
-
   data.atlas = data.atlas.replace("skeleton.png", (await blobToBase64(data.png)).replace("application/octet-stream", "image/png"));
   const conf = {
     jsonUrl: `data:application/json;base64,${btoa(unescape(encodeURIComponent(data.json)))}`,
@@ -152,6 +160,7 @@ const loadSpine = async (data: { json: string, atlas: string, png: Blob | null }
   new spine.SpinePlayer("spine-player", conf);
 }
 
+const expandSpine = ref(false);
 const selectSkeleton = () => {
   const t = skeletons.get(skeletonTarget.value);
   if (!t?.png) return;
@@ -185,100 +194,76 @@ const clear = () => {
   playingMovies.splice(0);
   audioStack.splice(0);
 }
-const onDrop = async (e: DragEvent) => {
-  e.preventDefault();
-  await loadItems(e.dataTransfer);
-}
+const onDrop = (e: DragEvent) => loadItems(e.dataTransfer?.files);
+const onInput = (e: Event) => loadItems((e.target as HTMLInputElement)?.files);
 
-const loadItems = async (data: DataTransfer | null) => {
-  if (!data) return;
-  const items = data.items;
-  if (items.length === 0) return;
-
+const loadItems = async (files: FileList | undefined | null) => {
+  if (!files) return;
+  if (files.length === 0) return;
   loadStatus.status = "Loading...";
-
-  for (const i of Array.from(items)) {
-    const item = i as DataTransferItem & { getAsEntry: () => FileSystemEntry | null }
-    const fsEntry = item.getAsEntry ? item.getAsEntry() : item.webkitGetAsEntry();
-    if (!fsEntry) continue;
-    await readAllFiles(fsEntry);
-  }
-
+  await readAllFiles(files[0]);
   loadStatus.status = "完了";
+  loadStatus.file = "";
 }
 
-const readAllFiles = async (f: FileSystemEntry) => {
+const readAllFiles = async (file: File) => {
   const anclFiles = new Array<AnclFile>();
-  if (f.isDirectory) {
-    const d = f as FileSystemDirectoryEntry
-    const es = await readEntries(d);
-    for (const e of Array.from(es)) {
-      loadStatus.file = e.name;
-      if (e.isDirectory) anclFiles.push(...(await readAllFiles(e as FileSystemDirectoryEntry)));
-      if (e.isFile) anclFiles.push({ fullPath: e.fullPath, name: e.name, file: await readAsFile(e as FileSystemFileEntry) });
+  if (!file.name.includes("zip")) return;
+  const z = await JSZip.loadAsync(file);
+  for (const [k, v] of Object.entries(z.files)) {
+    anclFiles.push({ fullPath: v.name, name: v.name.split("/").slice(-1)[0], file: newFile(v) })
+    loadStatus.file = v.name;
+    // 動画と音声
+    if (v.name.includes('mp4') || v.name.includes('m4a')) {
+      medias.push({
+        name: v.name,
+        file: await newFile(v),
+        cutStart: 0,
+        cutEnd: 0,
+        rate: 1,
+        repeat: true
+      } as Media)
     }
-  }
-  if (f.isFile) anclFiles.push({ fullPath: f.fullPath, name: f.name, file: await readAsFile(f as FileSystemFileEntry) });
 
-  for (const f of anclFiles) {
-    if (f.file instanceof Promise) continue;
-    if (!f.file.name.includes("zip")) continue;
-    const z = await JSZip.loadAsync(f.file);
-    for (const [k, v] of Object.entries(z.files)) {
-      anclFiles.push({ fullPath: v.name, name: v.name.split("/").slice(-1)[0], file: newFile(v) })
-      loadStatus.file = v.name;
-      // 動画と音声
-      if (v.name.includes('mp4') || v.name.includes('m4a')) {
-        medias.push({
-          name: v.name,
-          file: await newFile(v),
-          cutStart: 0,
-          cutEnd: 0,
-          rate: 1,
-          repeat: true
-        } as Media)
-      }
+    // 音声の内容
+    if (v.name.includes('source.json') || v.name.includes('meta.json')) {
+      const obj = JSON.parse(await v.async("string"));
+      if (Array.isArray(obj)) {
+        storySources.set(v.name, obj);
+        for (const t of obj) {
+          const vo = t.p1_chara_voice_text
+            + t.p2_chara_voice_text
+            + t.p3_chara_voice_text
+            + t.p4_chara_voice_text
+            + t.p5_chara_voice_text;
+          if (!vo) continue;
 
-      // 音声の内容
-      if (v.name.includes('source.json') || v.name.includes('meta.json')) {
-        const obj = JSON.parse(await v.async("string"));
-        if (Array.isArray(obj)) {
-          storySources.set(v.name, obj);
-          for (const t of obj) {
-            const vo = t.p1_chara_voice_text
-              + t.p2_chara_voice_text
-              + t.p3_chara_voice_text
-              + t.p4_chara_voice_text
-              + t.p5_chara_voice_text;
-            if (!vo) continue;
-
-            audioTextMap.set(`${v.name}/${vo}`.replace("source.json", "voice"), t.text);
-          }
-        }
-        if ('msg' in obj) {
-          for (let i = 1; i <= 20; i++) {
-            const key = 'm' + i.toString();
-            const text = obj.msg[key];
-            audioTextMap.set(msgMap.get(key) ?? "", text);
-          }
+          audioTextMap.set(`${v.name}/${vo}`.replace("source.json", "voice"), t.text);
         }
       }
-
-      // 画像
-      if (!v.dir && (v.name.includes("png") || v.name.includes("jpg"))) {
-        images.push({ name: v.name, file: newFile(v) });
-      }
-
-      // spine
-      if (!v.dir && v.name.includes("skeleton")) {
-        const key = v.name.replace(/\/skeleton\..*/, "");
-        if (!skeletons.has(key)) skeletons.set(key, { json: "", atlas: "", png: null });
-        const d = skeletons.get(key);
-        if (d) {
-          if (v.name.includes("skeleton.json")) d.json = await v.async("string");
-          if (v.name.includes("skeleton.atlas")) d.atlas = await v.async("string");
-          if (v.name.includes("skeleton.png")) d.png = await v.async("blob");
+      if ('msg' in obj) {
+        for (let i = 1; i <= 20; i++) {
+          const key = 'm' + i.toString();
+          const text = obj.msg[key];
+          audioTextMap.set(msgMap.get(key) ?? "", text);
         }
+      }
+    }
+
+    // 画像
+    if (!v.dir && (v.name.includes("png") || v.name.includes("jpg"))) {
+      images.push({ name: v.name, file: newFile(v) });
+    }
+
+    // spine
+    if (!v.dir && v.name.includes("skeleton")) {
+      const key = v.name.replace(/\/skeleton\..*/, "");
+      if (!skeletons.has(key)) skeletons.set(key, { json: "", atlas: "", png: null });
+      const d = skeletons.get(key);
+      if (d) {
+        if (v.name.includes("skeleton.json")) d.json = await v.async("string");
+        if (v.name.includes("skeleton.atlas")) d.atlas = await v.async("string");
+        if (v.name.includes("skeleton.png")) d.png = await v.async("blob");
       }
     }
   }
@@ -332,6 +317,9 @@ const togglePlay = (id: string) => {
   v.pause();
 }
 const fullscreen = (id: string) => (document.getElementById(id) as HTMLVideoElement).requestFullscreen();
+const expandMovie = ref(false);
+const pip = (id: string) => (document.getElementById(id) as HTMLVideoElement).requestPictureInPicture();
+
 </script>
 
 <template>
@@ -342,23 +330,26 @@ const fullscreen = (id: string) => (document.getElementById(id) as HTMLVideoElem
           <v-card-title primary-title>機能</v-card-title>
           <v-card-text class="py-0 pl-10">
             <ul>
-              <li>
-                実行
-                <ul>
-                  <li>ストーリーの簡易再生</li>
-                  <li>寝室のカスタム再生</li>
-                  <li>スケルトン再生</li>
-                </ul>
-              </li>
+              <li>音声の再生</li>
+              <li>SDアニメーション再生</li>
+              <li>画像の表示</li>
+              <li>ストーリーの簡易再生</li>
             </ul>
           </v-card-text>
         </v-card>
       </v-col>
-      <v-col>
-        <v-card @drop.prevent="onDrop" @dragenter.prevent @dragover.prevent class color="blue-grey">
+      <v-col @drop.prevent="onDrop" @dragenter.prevent @dragover.prevent>
+        <v-card color="blue-grey">
           <v-card-text>
             <p>zipをここにドロップ</p>
             <p>{{ loadStatus }}</p>
+            <input
+              class="text-black"
+              type="file"
+              @input="onInput"
+              accept=".zip"
+              style="width:100%;"
+            />
           </v-card-text>
           <v-card-actions>
             <v-btn @click="clear" color="cyan">読み込み結果のクリア</v-btn>
@@ -471,6 +462,10 @@ const fullscreen = (id: string) => (document.getElementById(id) as HTMLVideoElem
           </v-card-text>
           <v-card-actions>
             <v-btn @click="clearSpine">クリア</v-btn>
+            <label class="mx-2">
+              広げる
+              <input v-model="expandSpine" type="checkbox" />
+            </label>
           </v-card-actions>
         </v-card>
         <v-card v-show="images && images.length" color="blue darken-2 mt-3">
@@ -490,18 +485,36 @@ const fullscreen = (id: string) => (document.getElementById(id) as HTMLVideoElem
           </v-card-text>
           <v-card-actions>
             <v-btn @click="clearImage">クリア</v-btn>
+            <label class="mx-2">
+              広げる
+              <input v-model="expandImage" type="checkbox" />
+            </label>
+            <label class="mx-2">
+              チェック背景
+              <input v-model="showImageChecker" type="checkbox" />
+            </label>
           </v-card-actions>
         </v-card>
       </v-col>
-      <v-col style="display:none;">
-        <div id="spine-player"></div>
+      <v-col cols="9" v-show="skeletonTarget">
+        <div
+          id="spine-player"
+          :style="{
+            height: expandSpine ? '520px' : '320px',
+            width: expandSpine ? '100%' : 'unset',
+          }"
+        ></div>
       </v-col>
-      <v-col style="display:none;">
+      <v-col cols="9" v-show="imageTarget" class="ml-auto">
         <img
           v-show="imageTarget"
           id="image-sample"
           alt="画像サンプル"
-          style="max-height:320px;"
+          :style="{
+            maxHeight: expandImage ? 'unset' : '320px',
+            width: expandImage ? '100%' : 'unset',
+            background: (showImageChecker ? `repeating-conic-gradient(#808080 0% 25%, #D3D3D3 0% 50%) 50% / 40px 40px` : '')
+          }"
         />
       </v-col>
     </v-row>
@@ -515,7 +528,7 @@ const fullscreen = (id: string) => (document.getElementById(id) as HTMLVideoElem
       >{{ movie.name }}</v-btn>
     </v-row>
     <v-row class="my-2">
-      <v-col cols="6" v-for="media in playingMovies">
+      <v-col :cols="expandMovie ? 11 : 6" v-for="media in playingMovies">
         <video
           :id="media.name"
           @loadstart="updateMediaSettings(media.name)"
@@ -529,7 +542,19 @@ const fullscreen = (id: string) => (document.getElementById(id) as HTMLVideoElem
         </video>
         <v-card color="green" class="d-inline-block">
           <v-card-text class="d-flex flex-column">
-            <v-btn small @click="toggleControll(media.name)" color="grey">コントロール表示切替</v-btn>
+            <div class="d-flex">
+              <label class="mx-2">
+                広げる
+                <input v-model="expandMovie" type="checkbox" />
+              </label>
+              <v-btn @click="pip(media.name)" color="grey" size="x-small" title="ピクチャインピクチャ">PiP</v-btn>
+              <v-btn
+                @click="toggleControll(media.name)"
+                color="grey"
+                size="x-small"
+                title="コントロール表示切替"
+              >CTRL</v-btn>
+            </div>
             <label>
               先頭カット
               <input
@@ -570,9 +595,9 @@ const fullscreen = (id: string) => (document.getElementById(id) as HTMLVideoElem
     </v-row>
     <v-row v-show="storySources && storySources.size">
       <v-col cols="6">
-        <v-card>
-          <v-card-title>◆ストーリー</v-card-title>
-          <v-card-text>
+        <v-card :style="[floatStory ? storyStyle : undefined]">
+          <v-card-title v-show="!floatStory">◆ストーリー</v-card-title>
+          <v-card-text style="line-height:initial;">
             <select
               v-model="targetStory"
               class="my-2 bg-white text-black"
@@ -591,21 +616,75 @@ const fullscreen = (id: string) => (document.getElementById(id) as HTMLVideoElem
                 :value="element"
               >{{ element.text }}</option>
             </select>
-            <p
-              v-show="storyElement.speaker"
-              class="my-2"
-              style="min-height: 1rem;"
-            >【{{ storyElement.speaker }}】</p>
-            <p v-show="!storyElement.speaker" class="my-2" style="min-height: 1rem;"></p>
-            <p
-              v-show="storyElement.text"
-              class="my-2"
-              style="min-height: 3rem;"
-            >{{ storyElement.text }}</p>
-            <p v-show="storyElement.choice1">＞{{ storyElement.choice1 }}</p>
-            <p v-show="storyElement.choice2">＞{{ storyElement.choice2 }}</p>
-            <p v-show="storyElement.choice3">＞{{ storyElement.choice3 }}</p>
-            <audio id="story-audio" class="my-2" controls></audio>
+            <div :style="{ fontSize: `${storyFontSize}em` }">
+              <p
+                v-show="storyElement.speaker"
+                class="my-2"
+                style="min-height: 1rem;"
+              >【{{ storyElement.speaker }}】</p>
+              <p v-show="!storyElement.speaker" class="my-2" style="min-height: 1rem;"></p>
+              <p
+                v-show="storyElement.text"
+                class="my-2"
+                style="min-height: 3rem;"
+              >{{ storyElement.text }}</p>
+              <p v-show="storyElement.choice1">＞{{ storyElement.choice1 }}</p>
+              <p v-show="storyElement.choice2">＞{{ storyElement.choice2 }}</p>
+              <p v-show="storyElement.choice3">＞{{ storyElement.choice3 }}</p>
+            </div>
+            <div class="d-flex">
+              <audio id="story-audio" class="my-2" controls></audio>
+              <div class="d-flex flex-column">
+                <label class="mx-2">
+                  浮かす
+                  <input v-model="floatStory" type="checkbox" />
+                </label>
+                <label class="mx-2">
+                  フォントサイズ
+                  <input
+                    v-model="storyFontSize"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="3"
+                    style="width:2.5em ;background-color: white;"
+                  />
+                </label>
+                <label class="mx-2">
+                  透明度
+                  <input
+                    v-model="storyStyle.opacity"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="1"
+                    style="width:2.5em ;background-color: white;"
+                  />
+                </label>
+                <div class="d-flex" v-if="floatStory">
+                  <v-btn
+                    @click="storyStyle.top = '10px'; storyStyle.bottom = '';"
+                    size="x-small"
+                    color="grey"
+                  >↑</v-btn>
+                  <v-btn
+                    @click="storyStyle.left = ''; storyStyle.right = '10px';"
+                    size="x-small"
+                    color="grey"
+                  >→</v-btn>
+                  <v-btn
+                    @click="storyStyle.top = ''; storyStyle.bottom = '10px';"
+                    size="x-small"
+                    color="grey"
+                  >↓</v-btn>
+                  <v-btn
+                    @click="storyStyle.left = '10px'; storyStyle.right = '';"
+                    size="x-small"
+                    color="grey"
+                  >←</v-btn>
+                </div>
+              </div>
+            </div>
           </v-card-text>
         </v-card>
       </v-col>

@@ -1,6 +1,6 @@
 <template>
   <v-app-bar app color="deep-purple accent-4" style="font-size:1.5em">
-    <v-app-bar-title class="font-weight-bold">エンクリローダー 1.0.1</v-app-bar-title>
+    <v-app-bar-title class="font-weight-bold">エンクリローダー 1.1.0</v-app-bar-title>
 
     <v-spacer></v-spacer>
     <v-menu rounded offset-x offset-y close-on-click>

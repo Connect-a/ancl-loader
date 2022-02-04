@@ -11,6 +11,7 @@ import { downloadStory, fillStoryData } from '@/repository/downloadStory';
 type DownloadHistory = { id: string, date: string }
 
 const search = ref("");
+const filterNotDownloadedYet = ref(false);
 const additional = ref("");
 const loadAdditionalChara = async () => {
   const charaList = additional.value.split("\n");
@@ -42,7 +43,8 @@ const items = computed(() => {
   const s = search.value.replace(/[\u3041-\u3096]/g, (m) => String.fromCharCode(m.charCodeAt(0) + 0x60));
   return Object.values(state.characters?.chara_data ?? {})
     .filter(x => x.name.includes(s) || x.kana.includes(s))
-    .filter(x => x.chara_id !== "000000");
+    .filter(x => x.chara_id !== "000000")
+    .filter(x => filterNotDownloadedYet.value ? !downloadHistory.find(h => h.id === x.chara_id) : true);
 });
 
 let enableStidMap = await getEnableStidMap();
@@ -131,6 +133,10 @@ const download = async (character: Character) => {
     </v-card-text>
   </v-card>
   <!-- 検索 -->
+  <label class="mx-2">
+    未ダウンロード
+    <input v-model="filterNotDownloadedYet" type="checkbox" />
+  </label>
   <v-text-field v-model="search" label="キャラ名検索" outlined dense class="ma-3" />
   <template v-if="search === 'opensesame'">
     <v-textarea v-model="additional"></v-textarea>

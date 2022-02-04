@@ -6,8 +6,8 @@ import charaSkeletons from "@/repository/characterSkeletons.json";
 // 画像
 const imageSuffixList = ["st_s_01.png", "st_s_02.png", "st_s_03.png", "st_s_04.png", "st_s_05.png", "st_s_06.png", "st_s_07.png", "st_s_99.png"];
 const sdImageSuffixList = ["ss.png"]
-for (let i = 1; i <= 26; i++) sdImageSuffixList.push(`sd_${String(i).padStart(2, "0")}.png`);
-for (let i = 51; i <= 56; i++) sdImageSuffixList.push(`sd_${String(i).padStart(2, "0")}.png`);
+for (let i = 1; i <= 27; i++) sdImageSuffixList.push(`sd_${String(i).padStart(2, "0")}.png`);
+for (let i = 51; i <= 57; i++) sdImageSuffixList.push(`sd_${String(i).padStart(2, "0")}.png`);
 // ボイス
 // 声 V901からV941
 const voiceList = new Array<{ type: string, id: string }>();

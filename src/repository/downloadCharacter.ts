@@ -19,9 +19,9 @@ export const downloadCharacter = async (dir: JSZip, character: Character, canvas
     const voiceList = voice as Array<{ type: string, id: string }>
     // 戦闘 V801からV822
     Array(22).map(x => x)
-    for (let i = 1; i <= 22; i++) voiceList.push({ type: "-", id: `V8${String(i).padStart(2, "0")}` });
+    for (let i = 1; i <= 23; i++) voiceList.push({ type: "-", id: `V8${String(i).padStart(2, "0")}` });
     // 声 V901からV941
-    for (let i = 1; i <= 41; i++) voiceList.push({ type: "-", id: `V9${String(i).padStart(2, "0")}` });
+    for (let i = 1; i <= 42; i++) voiceList.push({ type: "-", id: `V9${String(i).padStart(2, "0")}` });
 
     // 特殊ボイス
     const specialVoices: Array<Voice> = await browser.runtime.sendMessage({ type: "getVoice" });
@@ -55,8 +55,8 @@ export const downloadCharacter = async (dir: JSZip, character: Character, canvas
   // 画像
   const base = `https://ancl.jp/img/game/chara/${character.chara_id}/graphic/${character.chara_id}_`;
   const imageSuffixList = imageSuffixes as Array<string>;
-  for (let i = 1; i <= 26; i++) imageSuffixList.push(`sd_${String(i).padStart(2, "0")}.png`);
-  for (let i = 51; i <= 56; i++) imageSuffixList.push(`sd_${String(i).padStart(2, "0")}.png`);
+  for (let i = 1; i <= 27; i++) imageSuffixList.push(`sd_${String(i).padStart(2, "0")}.png`);
+  for (let i = 51; i <= 57; i++) imageSuffixList.push(`sd_${String(i).padStart(2, "0")}.png`);
   const imageDir = dir?.folder("image");
   await loadCharaImage(imageDir ?? dir, canvas, base, imageSuffixList)
 }
