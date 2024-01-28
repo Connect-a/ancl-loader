@@ -1,78 +1,115 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
-import * as browser from "webextension-polyfill";
+import { computed, reactive } from 'vue';
 import JSZip from 'jszip';
-import dayjs from 'dayjs';
-import { Characters, AllStories, AdditionalStory, Character } from "@/@types";
+import type { Character } from '@/@types';
 import { downloadCharacter } from '@/repository/downloadCharacter';
-import { getCharacterStory, getEnableStidMap } from '@/repository/downloadCharaStory';
 import { downloadStory, fillStoryData } from '@/repository/downloadStory';
+import { useMainStore } from '@/store';
+import { useDownloadHistoryStore } from '@/store/downloadHistoryStore';
+import {
+  type AdditionalData,
+  useAdditionalDataStore,
+  type AdditionalDataType,
+} from '@/store/additionalDataStore';
 
-type DownloadHistory = { id: string, date: string }
+const mainStore = useMainStore();
+const downloadHistoryStore = useDownloadHistoryStore();
+const additionalDataStore = useAdditionalDataStore();
 
-const search = ref("");
-const filterNotDownloadedYet = ref(false);
-const additional = ref("");
-const loadAdditionalChara = async () => {
-  const charaList = additional.value.split("\n");
-  if (charaList.length <= 1) return;
-  const data = charaList.map(x => {
-    const s = x.split("_");
-    return {
-      charaId: s[0],
-      charaName: s[1],
-      stid: Number(s[2]),
-      storyId: s[3]
-    } as AdditionalStory
-  });
-  await browser.runtime.sendMessage({ type: "setAdditionalStories", data });
-  enableStidMap = await getEnableStidMap();
-  search.value = "";
-}
-
-let status = ref("");
-let workingCharaId = ref("");
-const key_downloadHistory = "downloadHistory";
-const downloadHistory: Array<DownloadHistory> = reactive(JSON.parse(localStorage.getItem(key_downloadHistory) ?? "[]"));
 const state = reactive({
-  stories: await browser.runtime.sendMessage({ type: "getStories" }) as AllStories,
-  characters: await browser.runtime.sendMessage({ type: "getCharacters" }) as Characters
-})
-
-const items = computed(() => {
-  const s = search.value.replace(/[\u3041-\u3096]/g, (m) => String.fromCharCode(m.charCodeAt(0) + 0x60));
-  return Object.values(state.characters?.chara_data ?? {})
-    .filter(x => x.name.includes(s) || x.kana.includes(s))
-    .filter(x => x.chara_id !== "000000")
-    .filter(x => filterNotDownloadedYet.value ? !downloadHistory.find(h => h.id === x.chara_id) : true);
+  page: 1,
+  search: '',
+  filterNotDownloadedYet: false,
+  charaImportUrl: localStorage.getItem('charaImportUrl') ?? '',
+  loadStatusMessage: '',
+  workingCharaId: '',
 });
 
-let enableStidMap = await getEnableStidMap();
+const enableStidMap = computed(() => {
+  if (!mainStore.stories) return new Map();
+  if (!mainStore.initData) return new Map();
+
+  return new Map(
+    Object.entries(mainStore.stories.chara?.story ?? {}).flatMap(([charaId, stories]) =>
+      stories
+        .filter((s) => {
+          if (additionalDataStore.storyAdditionalData.find((x) => x.stid === s.st_id)) return true;
+          const like = mainStore.initData?.result.player_data.story.chara[charaId];
+          if (!like) return false;
+          return s.order <= like;
+        })
+        .map((s) => [s.st_id, s]),
+    ),
+  );
+});
+
+const loadAdditionalChara = async () => {
+  if (state.charaImportUrl) localStorage.setItem('charaImportUrl', state.charaImportUrl);
+
+  state.charaImportUrl = localStorage.getItem('charaImportUrl') ?? '';
+  const charaList = (await (await fetch(state.charaImportUrl)).text()).split('\n');
+  if (charaList.length <= 1) return;
+
+  additionalDataStore.setAdditionalData(
+    charaList.map((x) => {
+      const [charaId, charaName, stid, storyId] = x.split('_');
+      let t: AdditionalDataType = 'story';
+      if (charaId === 'voice') t = 'voice';
+      if (charaId === 'radio') t = 'radio';
+      return {
+        type: t,
+        charaId,
+        charaName,
+        stid: Number(stid),
+        storyId,
+      } as AdditionalData;
+    }),
+  );
+
+  state.search = '';
+};
+
+const items = computed(() => {
+  const s = state.search.replace(/[\u3041-\u3096]/g, (m) =>
+    String.fromCharCode(m.charCodeAt(0) + 0x60),
+  );
+  return Object.values(mainStore.characters?.chara_data ?? {})
+    .filter((x) => x.name.includes(s) || x.kana.includes(s))
+    .filter((x) => x.chara_id !== '000000')
+    .filter((x) =>
+      state.filterNotDownloadedYet
+        ? !downloadHistoryStore.downloadHistory.find((h) => h?.id === x.chara_id)
+        : true,
+    )
+    .sort((a, b) => a.order - b.order);
+});
 
 const download = async (character: Character) => {
-  status.value = "開始中…";
-  workingCharaId.value = character.chara_id;
+  state.loadStatusMessage = '開始中…';
+  state.workingCharaId = character.chara_id;
 
   const zip = new JSZip();
   const charaDir = zip.folder(character.name);
   if (!charaDir) {
-    status.value = '【例外】なんかディレクトリ作るの失敗した。';
+    state.loadStatusMessage = '【例外】なんかディレクトリ作るの失敗した。';
     throw '【例外】なんかディレクトリ作るの失敗した。';
   }
 
   // 基本
-  status.value = "基本情報のダウンロード中…";
-  await downloadCharacter(charaDir, character, document.createElement("canvas"));
+  state.loadStatusMessage = '基本情報のダウンロード中…';
+  await downloadCharacter(charaDir, character, document.createElement('canvas'));
 
   // スケルトン
   {
-    const skeletonDir = charaDir.folder("skeleton");
-    const types = ["spine_n", "spine_w"];
-    const extensions = [".atlas", ".json", ".png"];
+    const skeletonDir = charaDir.folder('skeleton');
+    const types = ['spine_n', 'spine_w'];
+    const extensions = ['.atlas', '.json', '.png'];
     for (const t of types) {
       const d = skeletonDir?.folder(t);
       for (const e of extensions) {
-        const r = await fetch(`https://ancl.jp/img/game/chara/${character.chara_id}/${t}/skeleton${e}`);
+        const r = await fetch(
+          `https://ancl.jp/img/game/chara/${character.chara_id}/${t}/skeleton${e}`,
+        );
         if (!r.ok) continue;
         d?.file(`skeleton${e}`, r.blob());
       }
@@ -80,99 +117,207 @@ const download = async (character: Character) => {
   }
 
   // ストーリー
-  status.value = "ストーリーデータのダウンロード中…";
-  const stories = await getCharacterStory(character);
-  const filledStories = await fillStoryData(stories, enableStidMap);
-  const promises = new Array<Promise<Response>>();
+  state.loadStatusMessage = 'ストーリーデータのダウンロード中…';
+  const stories = mainStore.stories?.chara.story[character.chara_id];
+  if (!stories) {
+    state.loadStatusMessage = '【例外】ストーリーの取得失敗した。';
+    throw '【例外】ストーリーの取得失敗した。';
+  }
+
+  const filledStories = await fillStoryData(stories, enableStidMap.value);
+  const stidLoggingTasks = new Array<Promise<Response>>();
   for await (const s of filledStories) {
     await downloadStory(charaDir, s, character);
-    promises.push(fetch(`https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=${character.chara_id}_${character.name}_${s.st_id}_${s.storyId}?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`, {
-      method: 'GET',
-      mode: 'no-cors',
-      cache: 'no-cache',
-      credentials: 'same-origin'
-    }));
+    if (!s.storyId) continue;
+    stidLoggingTasks.push(
+      fetch(
+        `https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=${character.chara_id}_${character.name}_${s.st_id}_${s.storyId}?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`,
+        {
+          method: 'GET',
+          mode: 'no-cors',
+          cache: 'no-cache',
+          credentials: 'same-origin',
+        },
+      ),
+    );
   }
 
   // zipアーカイブ
-  status.value = "アーカイブなう…（時間かかるよ）";
-  const blob = await zip.generateAsync({ type: "blob" });
+  state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
+  const blob = await zip.generateAsync({ type: 'blob' });
 
-  status.value = "リンク生成中…";
+  state.loadStatusMessage = 'リンク生成中…';
   const a = document.createElement('a');
   a.download = `エンクリ_${character.name}.zip`;
   a.href = URL.createObjectURL(blob);
   a.click();
 
-  await Promise.all(promises);
-  downloadHistory.push({ id: character.chara_id, date: dayjs().format('YYYY/M/D HH:mm') });
-  localStorage.setItem(key_downloadHistory, JSON.stringify(downloadHistory));
+  await Promise.all(stidLoggingTasks);
+  downloadHistoryStore.pushDownloadHistory(character.chara_id);
 
-  status.value = "";
-  workingCharaId.value = "";
-}
+  state.loadStatusMessage = '';
+  state.workingCharaId = '';
+};
 </script>
 
 <template>
-  <v-card v-if="!state.characters?.chara_data || !state.stories?.chara?.story">
-    <v-card-title primary-title>🚨「ゲームスタート」してから再度開いてくださいますか</v-card-title>
-  </v-card>
-  <v-card>
-    <v-card-title primary-title>機能</v-card-title>
-    <v-card-text class="py-0 pl-10">
-      <ul>
-        <li>キャラクターの基本情報ダウンロード</li>
-        <li>
-          キャラクターのストーリーダウンロード
-          <ul>
-            <li>好感度が足りていても解放されていなければならん</li>
-            <li>ストーリー解放したらエンクリの画面を再読み込みしろ</li>
-          </ul>
-        </li>
-      </ul>
-    </v-card-text>
-  </v-card>
-  <!-- 検索 -->
-  <label class="mx-2">
-    未ダウンロード
-    <input v-model="filterNotDownloadedYet" type="checkbox" />
-  </label>
-  <v-text-field v-model="search" label="キャラ名検索" outlined dense class="ma-3" />
-  <template v-if="search === 'opensesame'">
-    <v-textarea v-model="additional"></v-textarea>
-    <v-btn @click="loadAdditionalChara">ロード</v-btn>
-  </template>
-  <!-- リスト -->
-  <v-list three-line v-if="state.characters?.chara_data && state.stories?.chara?.story">
-    <v-list-item v-for="item of items">
-      <v-list-item-avatar :style="{ height: '90px', width: '90px' }">
-        <v-img
-          :src="`https://ancl.jp/img/game/chara/${item.chara_id}/graphic/${item.chara_id}_ss.png`"
-        ></v-img>
-      </v-list-item-avatar>
-
-      <v-list-item-content class="ml-5">
-        <v-list-item-title v-text="`${item.name} : ${item.chara_id}`"></v-list-item-title>
-        <v-list-item-subtitle>
-          <ul>
-            <template v-for="story of state.stories?.chara?.story[item.chara_id]">
-              <li v-if="enableStidMap.has(story.st_id)">{{ story.st_id }} : {{ story.name }}</li>
-              <li v-if="!enableStidMap.has(story.st_id)">
-                <s>{{ story.st_id }} : {{ story.name }}</s>
+  <v-container>
+    <v-row>
+      <v-col>
+        <v-card>
+          <v-card-title primary-title>機能</v-card-title>
+          <v-card-text>
+            <ul>
+              <li>キャラクターの基本情報ダウンロード</li>
+              <li>
+                キャラクターのストーリーダウンロード
+                <ul>
+                  <li>好感度が足りていても解放されていなければダウンロード不可</li>
+                  <li>ストーリー解放したらヘッダーのボタンから再読み込み</li>
+                </ul>
               </li>
-            </template>
-          </ul>
-        </v-list-item-subtitle>
-      </v-list-item-content>
+            </ul>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+    <!-- 検索 -->
+    <v-row
+      dense
+      align="center"
+      v-if="mainStore.characters?.chara_data && mainStore.stories?.chara?.story"
+    >
+      <v-col>
+        <v-text-field v-model="state.search" label="キャラ名検索" outlined dense class="ma-3" />
+        <template v-if="state.search === 'opensesame'">
+          <v-text-field label="URL" v-model="state.charaImportUrl" />
+          <v-btn @click="loadAdditionalChara">ロード</v-btn>
+        </template>
+      </v-col>
+      <v-col cols="auto">
+        <v-checkbox
+          dense
+          label="未ダウンロードのみ表示"
+          v-model="state.filterNotDownloadedYet"
+        ></v-checkbox>
+      </v-col>
+    </v-row>
 
-      <v-list-item-action class="ml-auto mr-5 d-flex flex-column align-end">
-        <v-btn
-          @click="download(item)"
-          color="success"
-          :disabled="status !== ''"
-        >{{ workingCharaId === item.chara_id ? status : 'ダウンロード' }}</v-btn>
-        <p class="blue">{{ downloadHistory.find(x => x.id === item.chara_id)?.date ?? '-' }}</p>
-      </v-list-item-action>
-    </v-list-item>
-  </v-list>
+    <!-- リスト -->
+    <v-row dense>
+      <v-col>
+        <v-data-iterator
+          v-if="mainStore.loaded"
+          :items="items"
+          :page="state.page"
+          itemsPerPage="30"
+        >
+          <template v-slot:default="{ items }">
+            <v-list-item
+              v-for="item in items"
+              :key="item.raw.chara_id"
+              :title="`${item.raw.name} : ${item.raw.chara_id}`"
+            >
+              <template v-slot:prepend>
+                <v-avatar size="100" rounded="sm">
+                  <v-img
+                    :src="`https://ancl.jp/img/game/chara/${item.raw.chara_id}/graphic/${item.raw.chara_id}_ss.png`"
+                    :alt="`${item.raw.title}`"
+                  />
+                </v-avatar>
+              </template>
+              <v-list-item-subtitle>
+                <ul>
+                  <li
+                    v-for="story of mainStore.stories?.chara?.story[item.raw.chara_id]"
+                    :key="story.st_id"
+                    :style="[
+                      enableStidMap.has(story.st_id) ? '' : { 'text-decoration': 'line-through' },
+                    ]"
+                  >
+                    {{ story.st_id }} : {{ story.name }}
+                  </li>
+                </ul>
+              </v-list-item-subtitle>
+              <template v-slot:append>
+                <v-container>
+                  <v-row dense no-gutters>
+                    <v-col>
+                      <v-btn
+                        @click="download(item.raw)"
+                        color="primary"
+                        :disabled="state.loadStatusMessage !== ''"
+                        >{{
+                          state.workingCharaId === item.raw.chara_id
+                            ? state.loadStatusMessage
+                            : 'ダウンロード'
+                        }}</v-btn
+                      >
+                    </v-col>
+                  </v-row>
+                  <v-row dense no-gutters>
+                    <v-col>
+                      <p class="blue">
+                        {{
+                          downloadHistoryStore.downloadHistory.find(
+                            (x) => x?.id === item.raw.chara_id,
+                          )?.date ?? '-'
+                        }}
+                      </p>
+                    </v-col>
+                  </v-row>
+                </v-container>
+              </template>
+            </v-list-item>
+          </template>
+          <template v-slot:header="{ pageCount }">
+            <v-pagination v-model="state.page" :length="pageCount"></v-pagination>
+          </template>
+          <template v-slot:footer="{ pageCount }">
+            <v-pagination v-model="state.page" :length="pageCount"></v-pagination>
+          </template>
+        </v-data-iterator>
+
+        <!-- <v-list v-if="mainStore.loaded" item-props>
+          <v-list-item v-for="item in items" :key="item.chara_id" :title="item.title">
+            <template v-slot:prepend>
+              <v-avatar size="100" rounded="sm">
+                <v-img :src="`https://ancl.jp/img/game/chara/${item.chara_id}/graphic/${item.chara_id}_ss.png`"
+                  :alt="`${item.title}`" />
+              </v-avatar>
+            </template>
+            <v-list-item-subtitle>
+              <ul>
+                <li v-for="story of mainStore.stories?.chara?.story[item.chara_id]" :key="story.st_id" :style="[
+                  enableStidMap.has(story.st_id)
+                    ? ''
+                    : { 'text-decoration': 'line-through' },
+                ]">
+                  {{ story.st_id }} : {{ story.name }}
+                </li>
+              </ul>
+            </v-list-item-subtitle>
+            <template v-slot:append>
+              <v-container>
+                <v-row dense no-gutters>
+                  <v-col>
+                    <v-btn @click="download(item)" color="primary" :disabled="state.loadStatusMessage !== ''">{{
+                      state.workingCharaId === item.chara_id ? state.loadStatusMessage : 'ダウンロード'
+                    }}</v-btn>
+                  </v-col>
+                </v-row>
+                <v-row dense no-gutters>
+                  <v-col>
+                    <p class="blue">
+                      {{ downloadHistoryStore.downloadHistory.find((x) => x?.id === item.chara_id)?.date ?? '-' }}
+                    </p>
+                  </v-col>
+                </v-row>
+              </v-container>
+            </template>
+          </v-list-item>
+        </v-list> -->
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
