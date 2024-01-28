@@ -1,9 +1,10 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
-import Home from '@/components/main/Index.vue';
-import Story from '@/components/story/Index.vue';
-import EventStory from '@/components/eventStory/Index.vue';
-import Others from '@/components/others/Index.vue';
-import Player from '@/components/player/Index.vue';
+import Home from '@/components/main/ViewIndex.vue';
+import Story from '@/components/story/ViewIndex.vue';
+import EventStory from '@/components/eventStory/ViewIndex.vue';
+import Others from '@/components/others/ViewIndex.vue';
+import Asmr from '@/components/asmr/ViewIndex.vue';
+import Player from '@/components/player/ViewIndex.vue';
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -11,10 +12,11 @@ const routes = [
   { path: '/eventStory', name: 'EventStory', component: EventStory },
   { path: '/others', name: 'Others', component: Others },
   { path: '/player', name: 'Player', component: Player },
-]
+  { path: '/asmr', name: 'Asmr', component: Asmr },
+];
 
 export default createRouter({
   history: createWebHashHistory(),
   routes,
-  scrollBehavior: (to, from, savedPosition) => ({ top: 0 }),
-})
+  scrollBehavior: (_to, _from, _savedPosition) => ({ top: 0 }),
+});

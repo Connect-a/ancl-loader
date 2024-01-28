@@ -1,27 +1,18 @@
-import * as browser from 'webextension-polyfill';
-import setUpChrome from './readResponse/chrome/catchResponse';
-import setUpFirefox from './readResponse/firefox/catchResponse';
-import { initStore } from "./store";
+import { runtime } from 'webextension-polyfill';
+import { detachAll, setUpChrome } from './readResponse/chrome/catchResponse';
+// import setUpFirefox from './readResponse/firefox/catchResponse';
 
-initStore();
-setUpChrome();
-setUpFirefox();
-
-export const handleMessage = (message: any) => {
-  switch (message.type) {
-    case "switchEnable":
-      localStorage.setItem("enable", message.data);
-      if (message.data) setUpChrome();
-      if (!message.data) {
-        chrome.webNavigation.onCommitted.removeListener(x => x);
-        chrome.debugger.getTargets((t) => t
-          .filter(x => x.attached)
-          .forEach(d => chrome.debugger.detach({ tabId: d.tabId, targetId: d.id })));
-      }
-      return true;
-    default: return true;
+runtime.onMessage.addListener(async (message, _sender) => {
+  switch (message) {
+    case 'awaitGameData':
+      setUpChrome();
+      // setUpFirefox();
+      break;
+    case 'completeRestore':
+      await detachAll();
+      break;
+    default:
+      break;
   }
-}
-
-browser.runtime.onMessage.addListener(async (message, sender) => handleMessage(message));
-
+  return Promise.resolve(true);
+});
