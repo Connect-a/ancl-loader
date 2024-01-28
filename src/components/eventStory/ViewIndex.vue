@@ -1,123 +1,262 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
-import * as browser from "webextension-polyfill";
+import { computed, reactive } from 'vue';
 import JSZip from 'jszip';
-import { AllStories, BattleEvent, Section, StoryElement } from "@/@types";
-import { downloadStory, downloadBg, downloadSectionImage, fillStoryData } from '@/repository/downloadStory';
-import { getEnableStidMap, getSection, getStory } from '@/repository/downloadEventStory';
+import type { Section, StoryElement } from '@/@types';
+import {
+  downloadStory,
+  downloadBg,
+  downloadSectionImage,
+  fillStoryData,
+} from '@/repository/downloadStory';
+import { useMainStore } from '@/store';
+import { useDownloadHistoryStore } from '@/store/downloadHistoryStore';
+import { useAdditionalDataStore } from '@/store/additionalDataStore';
 
-let status = ref("");
-let workingSectionId = ref("");
+const _eventAssetPath = `https://ancl.jp/img/game/asset/event`;
+const mainStore = useMainStore();
+const downloadHistoryStore = useDownloadHistoryStore();
+const additionalDataStore = useAdditionalDataStore();
+
 const state = reactive({
-  section: await getSection(),
-  stories: await browser.runtime.sendMessage({ type: "getStories" }) as AllStories,
-  sectionEventIdMap:
-    new Map(
-      Object.entries(await browser.runtime.sendMessage({ type: "getBattleEvent" }) as BattleEvent)
-        .map(([k, v]) => [Object.entries(v.dungeons)[0][1].story_section, v.event_id]))
-})
+  tab: 'event' as 'event' | 'limited',
+  filterNotDownloadedYet: false,
+  loadStatusMessage: '',
+  workingSectionId: '',
+});
 
-const enableStidMap = await getEnableStidMap();
+const sectionEventIdMap = computed(
+  () =>
+    new Map(
+      Object.values(mainStore.battleEvent ?? {}).map((v) => [
+        Object.entries(v.dungeons)[0][1].story_section,
+        v.event_id,
+      ]),
+    ),
+);
+
+const storyList = computed(() => ({
+  ...mainStore.stories?.event.story,
+  ...mainStore.stories?.limited.story,
+}));
+const sectionOpenedMap = computed(
+  () =>
+    new Map<string, string>(
+      Object.entries({
+        ...(mainStore.initData?.result?.player_data.story.event ?? {}),
+        ...(mainStore.initData?.result?.player_data.story.limited ?? {}),
+      }),
+    ),
+);
+
+const enableStidMap = computed(() => {
+  if (!mainStore.stories) return new Map();
+  if (!mainStore.initData) return new Map();
+
+  return new Map(
+    Object.entries(storyList.value).flatMap(([sectionId, stories]) =>
+      stories
+        .filter((s) => {
+          if (additionalDataStore.storyAdditionalData.find((x) => x.stid === s.st_id)) return true;
+          if (!sectionOpenedMap.value.has(sectionId)) return false;
+          const open = Number.parseInt(sectionOpenedMap.value.get(sectionId)?.split('-')[1] ?? '0');
+          return s.order <= open;
+        })
+        .map((s) => [s.st_id, s]),
+    ),
+  );
+});
+
+const items = computed(() => {
+  let target = mainStore.stories?.event;
+  if (state.tab === 'limited') target = mainStore.stories?.limited;
+
+  return Object.values(target?.section ?? {})
+    .sort((a, b) => a.section_id.localeCompare(b.section_id))
+    .filter((x) =>
+      state.filterNotDownloadedYet
+        ? !downloadHistoryStore.sectionDownloadHistory.find((h) => h.id === x.section_id)
+        : true,
+    )
+    .map((x) => ({
+      ...x,
+      title: `${x.name} : ${x.section_id}`,
+      subtitle: '',
+    }));
+});
 
 const download = async (section: Section) => {
-  status.value = "開始中…";
-  workingSectionId.value = section.section_id;
+  state.loadStatusMessage = '開始中…';
+  state.workingSectionId = section.section_id;
 
   const zip = new JSZip();
   const sectionDir = zip.folder(section.name);
   if (!sectionDir) {
-    status.value = '【例外】なんかディレクトリ作るの失敗した。';
+    state.loadStatusMessage = '【例外】なんかディレクトリ作るの失敗した。';
     throw '【例外】なんかディレクトリ作るの失敗した。';
   }
 
   // ストーリー
-  status.value = "ストーリーデータのダウンロード中…";
-  const stories = await getStory(section.section_id);
-  const promises = new Array<Promise<Response>>();
+  state.loadStatusMessage = 'ストーリーデータのダウンロード中…';
+  const stories = storyList.value[section.section_id];
+  if (!stories) {
+    state.loadStatusMessage = '【例外】ストーリーの取得失敗した。';
+    throw '【例外】ストーリーの取得失敗した。';
+  }
+
+  const storyIdLoggingTasks = new Array<Promise<Response>>();
   const storyElements = new Array<StoryElement>();
-  const filledStories = await fillStoryData(stories, enableStidMap);
+  const filledStories = await fillStoryData(stories, enableStidMap.value);
   for await (const s of filledStories) {
     await downloadStory(sectionDir, s, section);
     storyElements.push(...s.elements);
-    promises.push(fetch(`https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=${section.section_id}_${section.name}_${s.st_id}_${s.storyId}?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`, {
-      method: 'GET',
-      mode: 'no-cors',
-      cache: 'no-cache',
-      credentials: 'same-origin'
-    }));
+    if (!s.storyId) continue;
+    storyIdLoggingTasks.push(
+      fetch(
+        `https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=${section.section_id}_${section.name}_${s.st_id}_${s.storyId}?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`,
+        {
+          method: 'GET',
+          mode: 'no-cors',
+          cache: 'no-cache',
+          credentials: 'same-origin',
+        },
+      ),
+    );
   }
+
   await downloadBg(sectionDir, storyElements);
   await downloadSectionImage(sectionDir, section);
   // イベントロゴ、背景、BGM
-  if (state.sectionEventIdMap.has(section.section_id)) {
-    const eventId = state.sectionEventIdMap.get(section.section_id);
-    const rLogo = await fetch(`https://ancl.jp/img/game/asset/event/${eventId}/logo.png`);
+  if (sectionEventIdMap.value.has(section.section_id)) {
+    const eventId = sectionEventIdMap.value.get(section.section_id);
+    const rLogo = await fetch(`${_eventAssetPath}/${eventId}/logo.png`);
     if (rLogo.ok) sectionDir.file('logo.png', rLogo.blob());
-    const rBgm = await fetch(`https://ancl.jp/img/game/asset/event/${eventId}/bgm.m4a`);
+    const rBgm = await fetch(`${_eventAssetPath}/${eventId}/bgm.m4a`);
     if (rBgm.ok) sectionDir.file('bgm.m4a', rBgm.blob());
-    const rBg = await fetch(`https://ancl.jp/img/game/asset/event/${eventId}/bg.jpg`);
+    const rBg = await fetch(`${_eventAssetPath}/${eventId}/bg.jpg`);
     if (rBg.ok) sectionDir.file('bg.jpg', rBg.blob());
+    const leftChara = await fetch(`${_eventAssetPath}/${eventId}/left_chara.json`);
+    if (leftChara.ok) {
+      sectionDir.file('left_chara.json', leftChara.clone().blob());
+      const leftCharaJson = await leftChara.json();
+      if (Array.isArray(leftCharaJson?.howto)) {
+        for (const x of Array.from(leftCharaJson.howto).flat()) {
+          if (!`${x}`.startsWith('EVE')) continue;
+          const howto = await fetch(`${_eventAssetPath}/${eventId}/${x}.jpg`);
+          sectionDir.file(`${x}.jpg`, howto.blob());
+        }
+      }
+    }
   }
 
   // zipアーカイブ
-  status.value = "アーカイブなう…（時間かかるよ）";
-  const blob = await zip.generateAsync({ type: "blob" });
+  state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
+  const blob = await zip.generateAsync({ type: 'blob' });
 
-  status.value = "リンク生成中…";
+  state.loadStatusMessage = 'リンク生成中…';
   const a = document.createElement('a');
   a.download = `エンクリ_イベントストーリー_${section.name}.zip`;
   a.href = URL.createObjectURL(blob);
   a.click();
 
-  await Promise.all(promises);
-  status.value = "";
-  workingSectionId.value = "";
-}
+  downloadHistoryStore.pushSectionDownloadHistory(section.section_id);
+
+  await Promise.all(storyIdLoggingTasks);
+  state.loadStatusMessage = '';
+  state.workingSectionId = '';
+};
 </script>
 
 <template>
-  <v-card>
-    <v-card-title primary-title>機能</v-card-title>
-    <v-card-text class="py-0 pl-10">
-      <ul>
-        <li>
-          イベントストーリーのダウンロード
-          <ul>
-            <li>解放されていないストーリーは情報が取れないのでダウンロード不可</li>
-            <li>ストーリー解放したらエンクリの画面を再読み込みしろ</li>
-          </ul>
-        </li>
-      </ul>
-    </v-card-text>
-  </v-card>
-  <!-- リスト -->
-  <v-list three-line v-if="state.section">
-    <v-list-item v-for="item of state.section">
-      <v-list-item-avatar :style="{ height: '81px', width: '144px' }">
-        <v-img :src="`https://ancl.jp/img/game/event/section/${item.section_id}.jpg`"></v-img>
-      </v-list-item-avatar>
-
-      <v-list-item-content class="ml-5">
-        <v-list-item-title v-text="`${item.name} : ${item.section_id}`"></v-list-item-title>
-        <v-list-item-subtitle>
-          <ul>
-            <template v-for="story of state.stories?.event?.story[item.section_id]">
-              <li v-if="enableStidMap.has(story.st_id)">{{ story.st_id }} : {{ story.name }}</li>
-              <li v-if="!enableStidMap.has(story.st_id)">
-                <s>{{ story.st_id }} : {{ story.name }}</s>
+  <v-container>
+    <v-row>
+      <v-col>
+        <v-card>
+          <v-card-title primary-title>機能</v-card-title>
+          <v-card-text>
+            <ul>
+              <li>
+                イベントストーリーのダウンロード
+                <ul>
+                  <li>解放されていないストーリーは情報が取れないのでダウンロード不可</li>
+                  <li>ストーリー解放したらヘッダーのボタンから再読み込み</li>
+                </ul>
               </li>
-            </template>
-          </ul>
-        </v-list-item-subtitle>
-      </v-list-item-content>
+            </ul>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
 
-      <v-list-item-action class="ml-auto mr-5">
-        <v-btn
-          @click="download(item)"
-          color="success"
-          :disabled="status !== ''"
-        >{{ workingSectionId === item.section_id ? status : 'ダウンロード' }}</v-btn>
-      </v-list-item-action>
-    </v-list-item>
-  </v-list>
+    <!-- 検索 -->
+    <v-row dense align="center">
+      <v-col cols="auto">
+        <v-checkbox
+          dense
+          label="未ダウンロードのみ表示"
+          v-model="state.filterNotDownloadedYet"
+        ></v-checkbox>
+      </v-col>
+    </v-row>
+
+    <!-- リスト -->
+    <v-row dense>
+      <v-col>
+        <v-tabs v-model="state.tab" bg-color="primary">
+          <v-tab value="main">メインストーリー</v-tab>
+          <v-tab value="limited">限定ストーリー</v-tab>
+        </v-tabs>
+        <v-list :items="items ?? []" item-props>
+          <template v-slot:prepend="{ item }">
+            <v-img
+              width="256"
+              class="mx-2"
+              :src="`https://ancl.jp/img/game/event/section/${item.section_id}.jpg`"
+            />
+          </template>
+          <template v-slot:subtitle="{ item }">
+            <ul>
+              <li
+                v-for="story of storyList[item.section_id]"
+                :key="story.st_id"
+                :style="[
+                  enableStidMap.has(story.st_id) ? '' : { 'text-decoration': 'line-through' },
+                ]"
+              >
+                {{ story.st_id }} : {{ story.name }}
+              </li>
+            </ul>
+          </template>
+          <template v-slot:append="{ item }">
+            <v-container>
+              <v-row dense no-gutters>
+                <v-col>
+                  <v-btn
+                    @click="download(item)"
+                    color="success"
+                    :disabled="state.loadStatusMessage !== ''"
+                    >{{
+                      state.workingSectionId === item.section_id
+                        ? state.loadStatusMessage
+                        : 'ダウンロード'
+                    }}</v-btn
+                  >
+                </v-col>
+              </v-row>
+              <v-row dense no-gutters>
+                <v-col>
+                  <p class="blue">
+                    {{
+                      downloadHistoryStore.sectionDownloadHistory.find(
+                        (x) => x.id === item.section_id,
+                      )?.date ?? '-'
+                    }}
+                  </p>
+                </v-col>
+              </v-row>
+            </v-container>
+          </template>
+        </v-list>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
