@@ -1,42 +1,64 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
-import * as browser from "webextension-polyfill";
+import { computed, reactive } from 'vue';
 import JSZip from 'jszip';
-import { AllStories, Section, StoryElement } from "@/@types";
+import type { Section, StoryElement } from '@/@types';
 import {
   downloadStory,
   downloadBg,
   downloadSectionImage,
-  getEnableStidMap,
-  getSection,
-  getStory,
-  fillStoryData
+  fillStoryData,
 } from '@/repository/downloadStory';
+import { useMainStore } from '@/store';
+import { useDownloadHistoryStore } from '@/store/downloadHistoryStore';
 
-let status = ref("");
-let workingSectionId = ref("");
+const mainStore = useMainStore();
+const downloadHistoryStore = useDownloadHistoryStore();
+
 const state = reactive({
-  section: await getSection(),
-  stories: await browser.runtime.sendMessage({ type: "getStories" }) as AllStories,
-})
+  filterNotDownloadedYet: false,
+  loadStatusMessage: '',
+  workingSectionId: '',
+});
 
-const enableStidMap = await getEnableStidMap();
+const enableStidMap = computed(() => {
+  if (!mainStore.stories?.main?.story) return new Map();
+  if (!mainStore.initData?.result.player_data.story.main) return new Map();
+
+  const [sectionId, opened] = Object.entries(mainStore.initData?.result.player_data.story.main)[0];
+
+  return new Map(
+    Object.entries(mainStore.stories?.main?.story).flatMap(([section, stories]) =>
+      stories
+        .filter((s) => {
+          if (section.substring(2) < sectionId.substring(2)) return true;
+          if (section.substring(2) === sectionId.substring(2) && s.order <= opened) return true;
+          return false;
+        })
+        .map((s) => [s.st_id, s]),
+    ),
+  );
+});
 
 const download = async (section: Section) => {
-  status.value = "開始中…";
-  workingSectionId.value = section.section_id;
+  state.loadStatusMessage = '開始中…';
+  state.workingSectionId = section.section_id;
 
   const zip = new JSZip();
   const sectionDir = zip.folder(section.name);
   if (!sectionDir) {
-    status.value = '【例外】なんかディレクトリ作るの失敗した。';
+    state.loadStatusMessage = '【例外】なんかディレクトリ作るの失敗した。';
     throw '【例外】なんかディレクトリ作るの失敗した。';
   }
 
   // ストーリー
-  status.value = "ストーリーデータのダウンロード中…";
-  const stories = await getStory(section.section_id);
-  const filledStories = await fillStoryData(stories, enableStidMap);
+  state.loadStatusMessage = 'ストーリーデータのダウンロード中…';
+  const stories = mainStore.stories?.main.story[section.section_id];
+  if (!stories) {
+    state.loadStatusMessage = '【例外】ストーリーの取得失敗した。';
+    throw '【例外】ストーリーの取得失敗した。';
+  }
+
+  const filledStories = await fillStoryData(stories, enableStidMap.value);
   const storyElements = new Array<StoryElement>();
   for await (const s of filledStories) {
     await downloadStory(sectionDir, s, section);
@@ -46,63 +68,124 @@ const download = async (section: Section) => {
   await downloadSectionImage(sectionDir, section);
 
   // zipアーカイブ
-  status.value = "アーカイブなう…（時間かかるよ）";
-  const blob = await zip.generateAsync({ type: "blob" });
+  state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
+  const blob = await zip.generateAsync({ type: 'blob' });
 
-  status.value = "リンク生成中…";
+  state.loadStatusMessage = 'リンク生成中…';
   const a = document.createElement('a');
-  a.download = `エンクリ_メインストーリー_${section.name}.zip`;
+  a.download = `エンクリ_${section.chapter}_${section.name}.zip`;
   a.href = URL.createObjectURL(blob);
   a.click();
 
-  status.value = "";
-  workingSectionId.value = "";
-}
+  downloadHistoryStore.pushSectionDownloadHistory(section.section_id);
+
+  state.loadStatusMessage = '';
+  state.workingSectionId = '';
+};
+
+const items = computed(() =>
+  Object.values(mainStore.stories?.main?.section ?? {})
+    .sort((a, b) => a.order - b.order)
+    .filter((x) =>
+      state.filterNotDownloadedYet
+        ? !downloadHistoryStore.sectionDownloadHistory.find((h) => h.id === x.section_id)
+        : true,
+    )
+    .map((x) => ({
+      ...x,
+      title: `${x.chapter} ${x.name} : ${x.section_id}`,
+      subtitle: '',
+    })),
+);
 </script>
 
 <template>
-  <v-card>
-    <v-card-title primary-title>機能</v-card-title>
-    <v-card-text class="py-0 pl-10">
-      <ul>
-        <li>
-          ストーリーのダウンロード
-          <ul>
-            <li>解放されていないストーリーは情報が取れないのでダウンロード不可</li>
-            <li>ストーリー解放したらエンクリの画面を再読み込みしろ</li>
-          </ul>
-        </li>
-      </ul>
-    </v-card-text>
-  </v-card>
-  <!-- リスト -->
-  <v-list three-line v-if="state.section">
-    <v-list-item v-for="item of state.section">
-      <v-list-item-avatar :style="{ height: '81px', width: '144px' }">
-        <v-img :src="`https://ancl.jp/img/game/event/section/${item.section_id}.jpg`"></v-img>
-      </v-list-item-avatar>
-
-      <v-list-item-content class="ml-5">
-        <v-list-item-title v-text="`${item.name} : ${item.section_id}`"></v-list-item-title>
-        <v-list-item-subtitle>
-          <ul>
-            <template v-for="story of state.stories?.main?.story[item.section_id]">
-              <li v-if="enableStidMap.has(story.st_id)">{{ story.st_id }} : {{ story.name }}</li>
-              <li v-if="!enableStidMap.has(story.st_id)">
-                <s>{{ story.st_id }} : {{ story.name }}</s>
+  <v-container>
+    <v-row>
+      <v-col>
+        <v-card>
+          <v-card-title primary-title>機能</v-card-title>
+          <v-card-text>
+            <ul>
+              <li>
+                ストーリーのダウンロード
+                <ul>
+                  <li>解放されていないストーリーは情報が取れないのでダウンロード不可</li>
+                  <li>ストーリー解放したらヘッダーのボタンから再読み込み</li>
+                </ul>
               </li>
-            </template>
-          </ul>
-        </v-list-item-subtitle>
-      </v-list-item-content>
+            </ul>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
 
-      <v-list-item-action class="ml-auto mr-5">
-        <v-btn
-          @click="download(item)"
-          color="success"
-          :disabled="status !== ''"
-        >{{ workingSectionId === item.section_id ? status : 'ダウンロード' }}</v-btn>
-      </v-list-item-action>
-    </v-list-item>
-  </v-list>
+    <!-- 検索 -->
+    <v-row dense align="center">
+      <v-col cols="auto">
+        <v-checkbox
+          dense
+          label="未ダウンロードのみ表示"
+          v-model="state.filterNotDownloadedYet"
+        ></v-checkbox>
+      </v-col>
+    </v-row>
+
+    <!-- リスト -->
+    <v-row dense>
+      <v-col>
+        <v-list :items="items ?? []" item-props>
+          <template v-slot:prepend="{ item }">
+            <v-img
+              width="256"
+              class="mx-2"
+              :src="`https://ancl.jp/img/game/event/section/${item.section_id}.jpg`"
+            />
+          </template>
+          <template v-slot:subtitle="{ item }">
+            <ul>
+              <li
+                v-for="story of mainStore.stories?.main?.story[item.section_id] ?? []"
+                :key="story.st_id"
+                :style="[
+                  enableStidMap.has(story.st_id) ? '' : { 'text-decoration': 'line-through' },
+                ]"
+              >
+                {{ story.st_id }} : {{ story.name }}
+              </li>
+            </ul>
+          </template>
+          <template v-slot:append="{ item }">
+            <v-container>
+              <v-row dense no-gutters>
+                <v-col>
+                  <v-btn
+                    @click="download(item)"
+                    color="success"
+                    :disabled="state.loadStatusMessage !== ''"
+                    >{{
+                      state.workingSectionId === item.section_id
+                        ? state.loadStatusMessage
+                        : 'ダウンロード'
+                    }}</v-btn
+                  >
+                </v-col>
+              </v-row>
+              <v-row dense no-gutters>
+                <v-col>
+                  <p class="blue">
+                    {{
+                      downloadHistoryStore.sectionDownloadHistory.find(
+                        (x) => x.id === item.section_id,
+                      )?.date ?? '-'
+                    }}
+                  </p>
+                </v-col>
+              </v-row>
+            </v-container>
+          </template>
+        </v-list>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>

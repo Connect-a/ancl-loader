@@ -41,12 +41,57 @@
   },
   {
     "id": "N16QCQ",
-    "name": "ギルド受付嬢２",
+    "name": "酒場の女主人",
     "hasStandingPicture": false
   },
   {
     "id": "N26RST",
     "name": "ギルド受付嬢",
+    "hasStandingPicture": false
+  },
+  {
+    "id": "N34PWQ",
+    "name": "フェンリル",
+    "hasStandingPicture": false
+  },
+  {
+    "id": "N35VIE",
+    "name": "ヨルムンガンド",
+    "hasStandingPicture": false
+  },
+  {
+    "id": "N36LBK",
+    "name": "ヘル",
+    "hasStandingPicture": false
+  },
+  {
+    "id": "N37TUR",
+    "name": "ロキ",
+    "hasStandingPicture": false
+  },
+  {
+    "id": "N39SKZ",
+    "name": "カオス",
+    "hasStandingPicture": false
+  },
+  {
+    "id": "N40MTU",
+    "name": "タナトス",
+    "hasStandingPicture": false
+  },
+  {
+    "id": "N41KZS",
+    "name": "ネメシス",
+    "hasStandingPicture": false
+  },
+  {
+    "id": "N42LEO",
+    "name": "ニュクス",
+    "hasStandingPicture": false
+  },
+  {
+    "id": "N43MVL",
+    "name": "クロノス",
     "hasStandingPicture": false
   }
 ]

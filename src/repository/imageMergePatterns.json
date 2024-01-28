@@ -1,66 +1,17 @@
 [
-  [
-    "gr_pb.png",
-    "gr_pc.png",
-    "gr_pf.png"
-  ],
-  [
-    "gr_pb.png",
-    "gr_pc.png",
-    "gr_pe.png",
-    "gr_pf.png"
-  ],
-  [
-    "gr_pb.png",
-    "gr_pc.png"
-  ],
-  [
-    "gr_pb.png",
-    "gr_pc.png",
-    "gr_pe.png"
-  ],
-  [
-    "gr_pc.png"
-  ],
-  [
-    "gr_pc.png",
-    "gr_pe.png"
-  ],
-  [
-    "gr_pc.png",
-    "gr_pf.png"
-  ],
-  [
-    "gr_pc.png",
-    "gr_pe.png",
-    "gr_pf.png"
-  ],
-  [
-    "st_s_99.png",
-    "st_s_01.png"
-  ],
-  [
-    "st_s_99.png",
-    "st_s_02.png"
-  ],
-  [
-    "st_s_99.png",
-    "st_s_03.png"
-  ],
-  [
-    "st_s_99.png",
-    "st_s_04.png"
-  ],
-  [
-    "st_s_99.png",
-    "st_s_05.png"
-  ],
-  [
-    "st_s_99.png",
-    "st_s_06.png"
-  ],
-  [
-    "st_s_99.png",
-    "st_s_07.png"
-  ]
+  ["gr_pb.png", "gr_pc.png", "gr_pf.png"],
+  ["gr_pb.png", "gr_pc.png", "gr_pe.png", "gr_pf.png"],
+  ["gr_pb.png", "gr_pc.png"],
+  ["gr_pb.png", "gr_pc.png", "gr_pe.png"],
+  ["gr_pc.png"],
+  ["gr_pc.png", "gr_pe.png"],
+  ["gr_pc.png", "gr_pf.png"],
+  ["gr_pc.png", "gr_pe.png", "gr_pf.png"],
+  ["st_99.png", "st_01.png"],
+  ["st_99.png", "st_02.png"],
+  ["st_99.png", "st_03.png"],
+  ["st_99.png", "st_04.png"],
+  ["st_99.png", "st_05.png"],
+  ["st_99.png", "st_06.png"],
+  ["st_99.png", "st_07.png"]
 ]
