@@ -4,7 +4,7 @@
 name: Release stable
 
 on:
-  pull_request:
+  push:
     branches: [ master ]
 
 jobs:
@@ -40,5 +40,6 @@ jobs:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         title: ${{ steps.package-version.outputs.current-version }}
         automatic_release_tag: ${{ steps.package-version.outputs.current-version }}
+        draft: true
         files: |
           ./**/*.zip
