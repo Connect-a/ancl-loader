@@ -2,20 +2,18 @@
 
 ## ◆概要
 Web拡張機能を利用した、エンジェリックリンクの非公式リソースダウンローダー。  
-最新は以下から。
+最新は以下から。  
 - https://github.com/Connect-a/ancl-loader/releases  
-
-RSSでリリースの通知を受けとることできる。
+RSS（リリース通知受け取り）  
 - https://github.com/Connect-a/ancl-loader/releases.atom
-- RSSの通知を受け取りたいんなら拡張機能使うだとかしろ。
-  - https://chrome.google.com/webstore/detail/rss-feed-reader/pnjaodmkngahhkoihejjehlcdlnohgmp?type=ext&hl=ja-JP
-  - ※サインインなしでも使用できる。
+気づいた点や欲しい機能があったらgithubのIssueに書き込むこと。  
+  - https://github.com/Connect-a/ancl-loader/issues
 
 ## ◆使用上の注意
 - このツールの存在は、あまり広めないほうが良いと思う。対策されたら面倒。
 - 知り得たリソースのURLを送信されるので、注意。使いたくない場合は使わないこと。
   - アカウント情報を収集したりはしてない。
-  - 不安に思ったらF12からNetworkタブを見ておけ。
+  - 不安に思ったらF12からNetworkタブを確認。
 - 止むを得ず通信を監視するので、使用しないときは拡張機能の電源を切るのがエコ。
 - 拡張機能が使われていることは基本的に検知不能であるはず。というのと、別に不正を働いているわけでもないので怒られないと思う。サーバーへの負荷もあんま無いつくり。
   - 自己責任の下で利用すること。
@@ -23,32 +21,31 @@ RSSでリリースの通知を受けとることできる。
 - このツールが便利だと思ったらエンジェリックリンクに課金すること。それがSDGs。
 
 ## ◆開発中ポイント
-- シナリオ上でしか登場しないキャラクターが追加された場合、無力。
-- 気づいた点があったらgithubのIssueに書き込むこと。
-  - https://github.com/Connect-a/ancl-loader/issues
-- 作ってほしい機能とかもダメもとでいいんでgithubのIssueに書き込むこと。
 - 現状、Chrome系のブラウザでのみ使用可能。
   - FirefoxとSafariは無理だがEdgeとかBraveとかはいける。
   - 各ブラウザを対応する予定はとりあえずない。
 
-## ◆使用法
+## ◆初回使用法
 - Releasesの最新版を落として任意のフォルダに解凍しておく。
   - https://github.com/Connect-a/ancl-loader/releases
-  - distフォルダの名前は変えていいよ。
+  - distフォルダの名前は変更可。
 - 「chrome://extensions/」を開く。
 - 「デベロッパーモード」をON
   - Edgeの場合「開発者モード」
 - 「パッケージ化されていない拡張機能を読み込む」
   - Edgeの場合「展開して読み込み」
 - manifest.jsonをルートに持つフォルダを選択。
-- エンジェリックリンクのサイトを開いて「ゲームスタート」する。
 - ブラウザ右上のジグソーパズルマークから拡張機能を起動。
+  - 拡張機能のピン止め、あるいはタブで開いてブックマークすると便利。
+
+## ◆更新
+- 解凍したzipの内容を元のフォルダに上書きすることで更新可能。
+  - ダウンロード履歴をリセットしたい場合は上書きせず、別の拡張機能として手動で読み込む。
 
 ## ◆メモ
 - プレイヤー
   - セレクトボックスはアローキーで操作可能。
-  - ラベルのクリックでフォーカスをあてられる要素がある。
-  - ストーリー表示要素の右下で幅を変えられる。
+    - カードをクリックしてフォーカスを当てるとアローキーで操作可能。
 - V413のボイスリスト
   - [molab_left.json](src\repository\molab_left.json)
   - https://ancl.jp/img/game/asset/text/molab/molab_left_[シーズンID].json
