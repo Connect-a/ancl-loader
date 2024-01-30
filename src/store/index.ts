@@ -76,6 +76,7 @@ export const useMainStore = defineStore('main', {
     },
     async cancelRestore() {
       this.isAwaitGameData = false;
+      await runtime.sendMessage('cancelRestore');
     },
   },
 });
