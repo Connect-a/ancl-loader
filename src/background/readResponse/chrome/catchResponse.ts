@@ -11,7 +11,6 @@ type ReqRespData = {
   postData: string;
 };
 
-let _tabIds = new Array<number>();
 const _requests = new Map<string, ReqRespData>();
 const _responses = new Map<string, ReqRespData>();
 
@@ -156,20 +155,13 @@ const handleDebuggerEvent = async (
   }
 };
 
-const detachDebugger = async (debuggee: chrome.debugger.Debuggee) => {
-  const targets = await chrome.debugger.getTargets();
-  const target = targets.find((x) => x.tabId === debuggee.tabId);
-  if (target?.attached) {
-    chrome.debugger.detach(debuggee);
-    _tabIds = _tabIds.filter((x) => x !== debuggee.tabId);
-  }
-};
-
 const handleWebNavigationOnCommitted = async (d: WebNavigation.OnCommittedDetailsType) => {
   const deb: chrome.debugger.Debuggee = { tabId: d.tabId };
-  await detachDebugger(deb);
+  const targets = await chrome.debugger.getTargets();
+  if (targets.some((x) => x.tabId === d.tabId && x.attached)) {
+    chrome.debugger.detach(deb);
+  }
 
-  if (deb.tabId) _tabIds.push(deb.tabId);
   await chrome.debugger.attach(deb, '1.3', () => {
     chrome.debugger.sendCommand(deb, 'Target.setAutoAttach', {
       autoAttach: true,
@@ -200,7 +192,14 @@ export const setUpChrome = async () => {
 export const detachAll = async () => {
   console.log('detachAll');
 
-  for (const d of _tabIds) await detachDebugger({ tabId: d });
+  const targets = await chrome.debugger.getTargets();
+  for (const t of targets.filter((x) => x.attached)) {
+    try {
+      await chrome.debugger.detach({ targetId: t.id });
+    } catch {
+      // console.log('already detached.', t);
+    }
+  }
 
   chrome.debugger.onEvent.removeListener(handleDebuggerEvent);
   webNavigation.onCommitted.removeListener(handleWebNavigationOnCommitted);
