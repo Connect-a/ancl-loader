@@ -259,7 +259,7 @@ const downloadRadio = async () => {
       <template v-slot:prepend>
         <v-avatar size="100" rounded="sm">
           <v-img
-            src="https://ancl.jp/game/client/pc/res/raw-assets/d9/d9506b81-d0a5-48c6-89cc-44e0638a17b9.78a49.png"
+            src="https://ancl.jp/game/client/pc/assets/resources/native/d9/d9506b81-d0a5-48c6-89cc-44e0638a17b9.78a49.png"
             alt="番組表＆ラジオ"
           />
         </v-avatar>
