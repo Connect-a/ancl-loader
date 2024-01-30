@@ -5,7 +5,10 @@ name: Release stable
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -14,7 +17,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: ['18.x', '20.x']
+        node-version: ['20.x']
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
