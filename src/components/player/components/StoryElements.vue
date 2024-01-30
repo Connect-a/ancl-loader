@@ -74,6 +74,7 @@ const closeDialog = () => {
 
 <template>
   <v-card
+    v-show="storySourceFileNames.some((x) => x)"
     :style="[state.float ? state.style : undefined]"
     tabindex="-1"
     @keydown.up.prevent="selectPrev('story-element-select')"
