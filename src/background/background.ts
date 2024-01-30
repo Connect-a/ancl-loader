@@ -9,6 +9,7 @@ runtime.onMessage.addListener(async (message, _sender) => {
       // setUpFirefox();
       break;
     case 'completeRestore':
+    case 'cancelRestore':
       await detachAll();
       break;
     default:
