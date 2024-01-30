@@ -51,7 +51,7 @@ const routeNameMap = new Map<string, string>([
       <v-btn href="https://github.com/Connect-a/ancl-loader" target="_blank" :icon="mdiGithub" />
       <v-btn :to="{ name: 'Player' }" :icon="mdiPlay" color="blue" />
       <v-btn
-        :href="`chrome-extension://${runtime.id}/index.html`"
+        :href="`chrome-extension://${runtime.id}/index.html#${route.fullPath}`"
         target="_blank"
         :icon="mdiOpenInNew"
         color="green"
