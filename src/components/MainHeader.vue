@@ -73,7 +73,7 @@ const routeNameMap = new Map<string, string>([
         v-show="mainStore.isAwaitGameData"
         indeterminate
         :size="20"
-        title="リロード待ち受け中…"
+        title="リロード待ち受け中。クリックでキャンセル。"
         @click="mainStore.cancelRestore"
       />
     </template>
