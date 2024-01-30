@@ -17,9 +17,13 @@ const state = reactive({
 const enableSectionIdSet = computed(
   () =>
     new Set(
-      (mainStore.initData?.result.player_data.voice ?? []).concat(
-        additionalChapter.map((x) => x.section_id),
-      ),
+      (mainStore.initData?.result.player_data.voice ?? [])
+        .concat(additionalChapter.map((x) => x.section_id))
+        .concat(
+          Object.values(mainStore.voice?.all.section ?? {})
+            .filter((v) => v.pay.data.num === 0)
+            .map((v) => v.section_id),
+        ),
     ),
 );
 const additionalChapter = (additionalDataStore.voiceAdditionalData ?? []).map((x) => ({
@@ -28,8 +32,6 @@ const additionalChapter = (additionalDataStore.voiceAdditionalData ?? []).map((x
   ch_id: x.stid,
   chapterId: x.storyId,
 }));
-
-//voice_${section.section_id}_${chapter.ch_id}_${chapterId}
 
 const download = async (section: AsmrSection) => {
   state.loadStatusMessage = '開始中…';
@@ -44,7 +46,7 @@ const download = async (section: AsmrSection) => {
 
   // セクション
   state.loadStatusMessage = 'セクションのダウンロード中…';
-  sectionDir.file('source.json', JSON.stringify(section));
+  sectionDir.file('section.json', JSON.stringify(section));
   const imageRes = await fetch(`https://ancl.jp/img/game/event/section/${section.img}.jpg`);
   sectionDir.file(`${section.img}.jpg`, imageRes.arrayBuffer());
 
@@ -138,11 +140,25 @@ const items = computed(() =>
         <!-- リスト -->
         <v-list v-if="mainStore.voice" :items="items" item-props>
           <template v-slot:prepend="{ item }">
-            <v-img
-              width="256"
-              class="mx-2"
-              :src="`https://ancl.jp/img/game/event/section/${item.img}.jpg`"
-            />
+            <div class="d-flex flex-column">
+              <v-img
+                width="256"
+                class="ma-2"
+                :src="`https://ancl.jp/img/game/event/section/${item.img}.jpg`"
+              />
+              <v-list-item-action center>
+                <v-btn
+                  @click="download(item)"
+                  color="success"
+                  :disabled="state.loadStatusMessage !== ''"
+                  >{{
+                    state.workingSectionId === item.section_id
+                      ? state.loadStatusMessage
+                      : 'ダウンロード'
+                  }}</v-btn
+                >
+              </v-list-item-action>
+            </div>
           </template>
           <template v-slot:subtitle="{ item }">
             <ul>
@@ -158,20 +174,6 @@ const items = computed(() =>
                 {{ chapter.ch_id }} : {{ chapter.name }}
               </li>
             </ul>
-          </template>
-          <template v-slot:append="{ item }">
-            <v-list-item-action center>
-              <v-btn
-                @click="download(item)"
-                color="success"
-                :disabled="state.loadStatusMessage !== ''"
-                >{{
-                  state.workingSectionId === item.section_id
-                    ? state.loadStatusMessage
-                    : 'ダウンロード'
-                }}</v-btn
-              >
-            </v-list-item-action>
           </template>
         </v-list>
       </v-col>
