@@ -79,3 +79,9 @@ const routeNameMap = new Map<string, string>([
     </template>
   </v-app-bar>
 </template>
+
+<style>
+.v-toolbar-title__placeholder {
+  overflow: initial !important;
+}
+</style>
