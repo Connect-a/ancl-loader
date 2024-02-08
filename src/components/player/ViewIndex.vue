@@ -118,7 +118,12 @@ const addMovie = async (name: string) =>
     name,
     blob: (await state.jszip.file(name)?.async('blob')) ?? new Blob(),
   });
-
+const addAllMovie = async () => {
+  state.movie.stack.splice(0);
+  for (const m of movieFileNames.value) {
+    await addMovie(m);
+  }
+};
 const removeMovie = async (name: string) =>
   state.movie.stack.splice(
     state.movie.stack.findIndex((x) => x.name === name),
@@ -272,27 +277,49 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
 
     <!-- 動画 -->
     <v-row v-show="movieFileNames.length" dense>
-      <v-col v-for="movie in movieFileNames" :key="movie">
-        <v-btn
-          v-show="!state.movie.stack.map((x) => x.name).includes(movie)"
-          @click="addMovie(movie)"
-          color="grey"
-          >{{ movie.split('/').findLast((x) => x) }}</v-btn
+      <v-col>
+        <v-card
+          title="◆動画"
+          v-show="movieFileNames?.length"
+          color="blue darken-4"
+          density="compact"
+          tabindex="-1"
         >
-        <v-btn
-          v-show="state.movie.stack.map((x) => x.name).includes(movie)"
-          @click="removeMovie(movie)"
-          color="green"
-        >
-          {{ movie.split('/').findLast((x) => x) }}
-        </v-btn>
+          <v-card-text>
+            <v-container>
+              <v-row>
+                <template v-for="movie in movieFileNames" :key="movie">
+                  <v-btn
+                    v-show="!state.movie.stack.map((x) => x.name).includes(movie)"
+                    @click="addMovie(movie)"
+                    color="grey"
+                    >{{ movie.split('/').findLast((x) => x) }}</v-btn
+                  >
+                  <v-btn
+                    v-show="state.movie.stack.map((x) => x.name).includes(movie)"
+                    @click="removeMovie(movie)"
+                    color="green"
+                  >
+                    {{ movie.split('/').findLast((x) => x) }}
+                  </v-btn>
+                </template>
+              </v-row>
+              <v-row v-show="movieFileNames.length">
+                <v-btn @click="addAllMovie">全て表示</v-btn>
+                <v-btn @click="movieFileNames.forEach(removeMovie)">クリア</v-btn>
+                <v-btn @click="state.movie.expands = new Set(movieFileNames)">ひろげる</v-btn>
+                <v-btn @click="state.movie.expands = new Set()">ちぢめる</v-btn>
+              </v-row>
+            </v-container>
+          </v-card-text>
+        </v-card>
       </v-col>
     </v-row>
     <v-row dense>
       <v-col
-        :cols="state.movie.expands.has(media.name) ? 12 : 6"
         v-for="media in state.movie.stack"
         :key="media.name"
+        :cols="state.movie.expands.has(media.name) ? 12 : 6"
       >
         <VideoContainer
           :media="media"
