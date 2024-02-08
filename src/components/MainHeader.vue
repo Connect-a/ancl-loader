@@ -80,7 +80,7 @@ const routeNameMap = new Map<string, string>([
   </v-app-bar>
 </template>
 
-<style>
+<style scoped>
 .v-toolbar-title__placeholder {
   overflow: initial !important;
 }

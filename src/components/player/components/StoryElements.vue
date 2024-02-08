@@ -1,9 +1,25 @@
 <script setup lang="ts">
-import { reactive, type CSSProperties, computed } from 'vue';
-import { mdiDockWindow } from '@mdi/js';
+import { reactive, type CSSProperties, computed, watch, onMounted } from 'vue';
+import {
+  mdiDockWindow,
+  mdiWindowClose,
+  mdiDrag,
+  mdiFormatSize,
+  mdiOpacity,
+  mdiThemeLightDark,
+  mdiContentSave,
+} from '@mdi/js';
 import type { StoryElement } from '@/@types';
 import { selectNext, selectPrev } from '@/scripts/selectConrol';
 import type JSZip from 'jszip';
+
+type CardTheme = 'dark' | 'light';
+type CardStyle = {
+  fonSize: number;
+  theme: CardTheme;
+  width: string;
+  opacity: number;
+};
 
 const toUrl = URL.createObjectURL;
 const props = defineProps<{
@@ -17,23 +33,59 @@ const state = reactive({
   index: 0,
   elements: new Array<StoryElement>(),
   element: {} as StoryElement,
-  float: false,
   fontSize: 1,
+  theme: 'dark' as CardTheme,
+  float: false,
+  dragPositionOffset: { x: 0, y: 0 },
   style: {
-    position: 'fixed',
-    marginTop: '64px',
-    top: '',
-    right: '',
-    bottom: '10px',
-    left: '10px',
-    width: '500px',
+    position: 'initial',
     opacity: '1',
     resize: 'horizontal',
+    top: '64px',
+    left: 0,
+    zIndex: 0,
+    width: 'initial',
+    height: 'initial',
   } as CSSProperties,
-  dialog: {
-    open: false,
-  },
 });
+
+const storySourceFileNames = computed(
+  () => props.fileNames?.filter((x) => x.includes('source.json')) ?? [],
+);
+
+// NOTE: ファイル名配列が空になった時にクリア
+watch(props.fileNames, async (v, _old) => {
+  if (v?.length) return;
+  state.target = '';
+  state.element = {} as StoryElement;
+});
+
+onMounted(() => {
+  setResizeObserver();
+  loadStyle();
+});
+
+const getCard = () => document.getElementById('story-card');
+
+const saveStyle = () => {
+  localStorage.setItem(
+    'playerCardStyle',
+    JSON.stringify({
+      fonSize: state.fontSize,
+      theme: state.theme,
+      width: state.style.width,
+      opacity: state.style.opacity,
+    } as CardStyle),
+  );
+};
+
+const loadStyle = () => {
+  const style = JSON.parse(localStorage.getItem('playerCardStyle') ?? '{}') as CardStyle;
+  state.fontSize = style.fonSize;
+  state.theme = style.theme;
+  state.style.width = style.width;
+  state.style.opacity = style.opacity;
+};
 
 const setStoryElements = async () => {
   state.elements.splice(0);
@@ -41,10 +93,6 @@ const setStoryElements = async () => {
     ...JSON.parse((await props.jszip.file(state.target)?.async('string')) ?? '[]'),
   );
 };
-
-const storySourceFileNames = computed(() =>
-  props.fileNames.filter((x) => x.includes('source.json')),
-);
 
 const changeStoryElement = async () => {
   const audio = document.getElementById('story-audio') as HTMLAudioElement;
@@ -62,59 +110,109 @@ const changeStoryElement = async () => {
   audio.play();
 };
 
-const showDialog = () => {
-  (document.getElementById('story-dialog') as HTMLDialogElement)?.show();
-  state.dialog.open = true;
+const cardControll = {
+  floatCard: () => {
+    state.float = true;
+    state.style.position = 'fixed';
+    state.style.zIndex = 1000;
+    const card = getCard();
+    const rect = card?.getBoundingClientRect();
+    state.style.left = `${rect?.x}px`;
+    state.style.top = `${rect?.y}px`;
+  },
+  fixCard: () => {
+    state.float = false;
+    state.style.position = 'initial';
+    state.style.zIndex = 0;
+  },
+  startCardMove: (e: DragEvent) => {
+    const card = getCard();
+    const rect = card?.getBoundingClientRect();
+    state.dragPositionOffset = { x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.y ?? 0) };
+    state.style.left = `${e.clientX - state.dragPositionOffset.x}px`;
+    state.style.top = `${e.clientY - state.dragPositionOffset.y}px`;
+  },
+  moveCard: (e: DragEvent) => {
+    if (e.clientX === 0 && e.clientY === 0) return;
+    state.style.left = `${e.clientX - state.dragPositionOffset.x}px`;
+    state.style.top = `${e.clientY - state.dragPositionOffset.y}px`;
+  },
+  toggleTheme: () => {
+    switch (state.theme) {
+      case 'dark':
+        state.theme = 'light';
+        return;
+      case 'light':
+      default:
+        state.theme = 'dark';
+        return;
+    }
+  },
 };
-const closeDialog = () => {
-  (document.getElementById('story-dialog') as HTMLDialogElement)?.close();
-  state.dialog.open = false;
+
+// カードリサイズ
+const resizeObserver = new ResizeObserver((entries) => {
+  for (const entry of entries) {
+    if (entry.target instanceof HTMLElement) {
+      state.style.width = entry.target.style.width;
+      state.style.height = entry.target.style.height;
+    }
+  }
+});
+const setResizeObserver = () => {
+  const card = getCard();
+  if (card) resizeObserver.observe(card);
 };
 </script>
 
 <template>
+  <div v-show="state.float" style="min-height: 400px"></div>
   <v-card
+    id="story-card"
     v-show="storySourceFileNames.some((x) => x)"
-    :style="[state.float ? state.style : undefined]"
     tabindex="-1"
     @keydown.up.prevent="selectPrev('story-element-select')"
     @keydown.left.prevent="selectPrev('story-element-select')"
     @keydown.down.prevent="selectNext('story-element-select')"
     @keydown.right.prevent="selectNext('story-element-select')"
+    :style="state.style"
+    :theme="state.theme"
     class="focusable"
   >
-    <v-card-title v-show="!state.float" class="d-flex flex-row">
-      <span>◆ストーリー</span>
+    <v-card-title class="d-flex flex-row">
+      <v-icon
+        v-show="state.float"
+        :icon="mdiDrag"
+        draggable="true"
+        @dragstart="cardControll.startCardMove"
+        @drag="cardControll.moveCard"
+        class="cursor-move"
+        title="ドラッグで動かす"
+      />
+      <span v-show="!state.float">◆ストーリー</span>
       <v-spacer></v-spacer>
-      <v-btn @click="showDialog" v-show="!state.dialog.open">
-        <v-icon :icon="mdiDockWindow" />
-      </v-btn>
+      <v-btn :icon="mdiContentSave" @click="saveStyle" density="compact" title="スタイルの保存" />
+      <v-btn :icon="mdiThemeLightDark" @click="cardControll.toggleTheme" density="compact" />
+      <v-btn
+        :icon="mdiDockWindow"
+        @click="cardControll.floatCard"
+        v-show="!state.float"
+        density="compact"
+        title="浮かす"
+      />
+      <v-btn
+        :icon="mdiWindowClose"
+        @click="cardControll.fixCard"
+        v-show="state.float"
+        density="compact"
+      />
     </v-card-title>
-    <dialog id="story-dialog" draggable="true" style="margin: auto; padding: 1em">
-      <menu>
-        <v-btn @click="closeDialog">とじる</v-btn>
-      </menu>
-    </dialog>
     <v-card-text style="line-height: initial">
-      <select v-model="state.target" @change="setStoryElements" class="mx-1">
-        <option v-for="title in storySourceFileNames" :value="title" :key="title">
-          {{ title }}
-        </option>
-      </select>
-      <select
-        v-model="state.element"
-        @change="changeStoryElement"
-        class="mx-1"
-        id="story-element-select"
-      >
-        <option v-for="element in state.elements" :value="element" :key="element.text">
-          {{ element.text }}
-        </option>
-      </select>
-
-      <div :style="{ fontSize: `${state.fontSize}em` }">
-        <p class="my-2" style="min-height: 1rem">
-          <span v-show="state.element.speaker">【{{ state.element.speaker }}】</span>
+      <div v-show="state.target" :style="{ fontSize: `${state.fontSize}em` }">
+        <p class="my-2">
+          <span style="line-height: 1em">{{
+            state.element.speaker ? `【${state.element.speaker}】` : '-'
+          }}</span>
         </p>
         <p class="my-2" style="min-height: 3rem">
           {{ state.element.text }}
@@ -123,79 +221,46 @@ const closeDialog = () => {
         <p v-show="state.element.choice2">＞{{ state.element.choice2 }}</p>
         <p v-show="state.element.choice3">＞{{ state.element.choice3 }}</p>
       </div>
-      <div class="d-flex">
-        <audio id="story-audio" class="my-2" :volume="props.volume / 100" controls></audio>
-        <div class="d-flex flex-column">
-          <label class="mx-2">
-            浮かす
-            <input v-model="state.float" type="checkbox" />
-          </label>
-          <label class="mx-2">
-            フォントサイズ
-            <input
-              v-model="state.fontSize"
-              type="number"
-              step="0.1"
-              min="0"
-              max="3"
-              style="width: 2.5em; background-color: white"
-            />
-          </label>
-          <label class="mx-2">
-            透明度
-            <input
-              v-model="state.style.opacity"
-              type="number"
-              step="0.1"
-              min="0"
-              max="1"
-              style="width: 2.5em; background-color: white"
-            />
-          </label>
-          <div class="d-flex" v-if="state.float">
-            <v-btn
-              size="x-small"
-              variant="outlined"
-              @click="
-                state.style.top = '10px';
-                state.style.bottom = '';
-              "
-              color="grey"
-              >↑</v-btn
-            >
-            <v-btn
-              size="x-small"
-              variant="outlined"
-              @click="
-                state.style.left = '';
-                state.style.right = '10px';
-              "
-              color="grey"
-              >→</v-btn
-            >
-            <v-btn
-              size="x-small"
-              variant="outlined"
-              @click="
-                state.style.top = '';
-                state.style.bottom = '10px';
-              "
-              color="grey"
-              >↓</v-btn
-            >
-            <v-btn
-              size="x-small"
-              variant="outlined"
-              @click="
-                state.style.left = '10px';
-                state.style.right = '';
-              "
-              color="grey"
-              >←</v-btn
-            >
-          </div>
-        </div>
-      </div>
+      <select v-model="state.target" @change="setStoryElements" class="mx-1">
+        <option v-for="title in storySourceFileNames ?? []" :value="title" :key="title">
+          {{ title }}
+        </option>
+      </select>
+      <select
+        v-show="state.target"
+        v-model="state.element"
+        @change="changeStoryElement"
+        class="mx-1"
+        id="story-element-select"
+      >
+        <option v-for="element in state.elements ?? []" :value="element" :key="element.text">
+          {{ element.text }}
+        </option>
+      </select>
+      <details>
+        <summary>CTRL</summary>
+        <audio id="story-audio" :volume="props.volume / 100" controls></audio>
+        <v-slider
+          v-model="state.fontSize"
+          :prepend-icon="mdiFormatSize"
+          density="compact"
+          min="0.05"
+          max="3"
+          step="0.01"
+          hide-details
+        />
+        <v-slider
+          v-model="state.style.opacity"
+          :prepend-icon="mdiOpacity"
+          density="compact"
+          min="0.05"
+          max="1"
+          step="0.01"
+          hide-details
+        />
+      </details>
     </v-card-text>
   </v-card>
 </template>
+
+<style scoped></style>

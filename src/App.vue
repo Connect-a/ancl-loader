@@ -124,6 +124,8 @@ storage.local.onChanged.addListener((changes) => {
   </Suspense>
 </template>
 
+<style scoped></style>
+
 <style>
 .focusable:focus {
   filter: brightness(1.2);
@@ -133,9 +135,15 @@ ul {
   padding-inline-start: 40px;
 }
 
+.v-theme--dark select {
+  background-color: snow !important;
+  color: dimgray !important;
+}
+.v-theme--light select {
+  background-color: dimgray !important;
+  color: snow !important;
+}
 select {
-  background: white !important;
-  color: black !important;
   width: 100% !important;
   appearance: auto !important;
 }

@@ -104,7 +104,7 @@ const pip = () => getVideo().requestPictureInPicture();
             :prepend-icon="mdiPlaySpeed"
             density="compact"
             min="0"
-            :max="3"
+            max="3"
             step="0.01"
             hide-details
             @update:modelValue="setPlaybackRate"
