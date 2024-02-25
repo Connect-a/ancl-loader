@@ -1,4 +1,4 @@
-import JSZip from 'jszip';
+import type { ZipDir } from '@/scripts/zip';
 import { loadCharaImage } from './anclCharaImageLoader';
 import characters from './characters.json';
 import charaSkeletons from '@/repository/characterSkeletons.json';
@@ -29,15 +29,15 @@ const imageSuffixList = [
   'st_s_99.png',
 ];
 const sdImageSuffixList = ['ss.png'];
-for (let i = 1; i <= 27; i++) sdImageSuffixList.push(`sd_${String(i).padStart(2, '0')}.png`);
-for (let i = 51; i <= 57; i++) sdImageSuffixList.push(`sd_${String(i).padStart(2, '0')}.png`);
+for (let i = 1; i <= 26; i++) sdImageSuffixList.push(`sd_${String(i).padStart(2, '0')}.png`);
+for (let i = 51; i <= 56; i++) sdImageSuffixList.push(`sd_${String(i).padStart(2, '0')}.png`);
 // ボイス
 // 声 V901からV941
 const voiceList = new Array<{ type: string; id: string }>();
 for (let i = 1; i <= 41; i++) voiceList.push({ type: '-', id: `V9${String(i).padStart(2, '0')}` });
 
-export const downloadCharacter = async (dir: JSZip, createCanvas: () => HTMLCanvasElement) => {
-  const promises = new Array<Promise<void>>();
+export const downloadCharacter = async (dir: ZipDir, createCanvas: () => HTMLCanvasElement) => {
+  const tasks = new Array<Promise<unknown>>();
   const characterList = characters as Array<OtherCharacter>;
   const charactersFetchResponse = await fetch(
     'https://raw.githubusercontent.com/Connect-a/ancl-loader/master/src/repository/characters.json',
@@ -50,13 +50,12 @@ export const downloadCharacter = async (dir: JSZip, createCanvas: () => HTMLCanv
   }
 
   for (const c of characterList) {
-    const d = dir?.folder(`${c.id}_${c.name}`);
+    const d = dir.folder(`${c.id}_${c.name}`);
     //
     const imageBase = `https://ancl.jp/img/game/chara/${c.id}/graphic/${c.id}_`;
-    const imageDir = d?.folder('image');
-    if (!imageDir) continue;
+    const imageDir = d.folder('image');
     if (c.hasStandingPicture) {
-      promises.push(
+      tasks.push(
         loadCharaImage(
           imageDir,
           createCanvas(),
@@ -66,33 +65,33 @@ export const downloadCharacter = async (dir: JSZip, createCanvas: () => HTMLCanv
       );
     }
     if (!c.hasStandingPicture) {
-      promises.push(loadCharaImage(imageDir, createCanvas(), imageBase, sdImageSuffixList));
+      tasks.push(loadCharaImage(imageDir, createCanvas(), imageBase, sdImageSuffixList));
     }
     //
-    const voiceDir = d?.folder('voice');
-    if (!voiceDir) continue;
-    const voices = voiceList.map((x) => ({
-      name: `${x.id}.m4a`,
-      res: fetch(`https://ancl.jp/img/game/chara/${c.id}/voice/${x.id}.m4a`),
-    }));
-    for (const x of voices) {
-      const res = await x.res;
-      if (res.ok) voiceDir?.file(x.name, res.blob());
+    const voiceDir = d.folder('voice');
+    for (const v of voiceList) {
+      tasks.push(
+        voiceDir.fileFromUrlAsync(
+          `${v.id}.m4a`,
+          `https://ancl.jp/img/game/chara/${c.id}/voice/${v.id}.m4a`,
+        ),
+      );
     }
   }
 
-  await Promise.all(promises);
+  await Promise.all(tasks);
 };
 
-export const downloadCharacterSkeleton = async (dir: JSZip) => {
+export const downloadCharacterSkeleton = async (dir: ZipDir) => {
+  const tasks = new Array<Promise<unknown>>();
   for (const c of charaSkeletons) {
-    const charaDir = dir?.folder(c.name);
-    const d = charaDir?.folder('skeleton');
+    const charaDir = dir.folder(c.name);
+    const d = charaDir.folder('skeleton');
     //
     const extensions = ['.atlas', '.json', '.png'];
     for (const e of extensions) {
-      const res = await fetch(`${c.path}${e}`);
-      if (res.ok) d?.file(`skeleton${e}`, res.blob());
+      tasks.push(d.fileFromUrlAsync(`skeleton${e}`, `${c.path}${e}`));
     }
   }
+  await Promise.all(tasks);
 };

@@ -1,13 +1,8 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
-import JSZip from 'jszip';
+import { ZipDir } from '@/scripts/zip';
 import type { Section, StoryElement } from '@/@types';
-import {
-  downloadStory,
-  downloadBg,
-  downloadSectionImage,
-  fillStoryData,
-} from '@/repository/downloadStory';
+import { downloadStory, downloadBg, fillStoryData } from '@/repository/downloadStory';
 import { useMainStore } from '@/store';
 import { useDownloadHistoryStore } from '@/store/downloadHistoryStore';
 
@@ -19,6 +14,21 @@ const state = reactive({
   loadStatusMessage: '',
   workingSectionId: '',
 });
+
+const items = computed(() =>
+  Object.values(mainStore.stories?.main?.section ?? {})
+    .sort((a, b) => a.order - b.order)
+    .filter((x) =>
+      state.filterNotDownloadedYet
+        ? !downloadHistoryStore.sectionDownloadHistory.find((h) => h.id === x.section_id)
+        : true,
+    )
+    .map((x) => ({
+      ...x,
+      title: `${x.chapter} ${x.name} : ${x.section_id}`,
+      subtitle: '',
+    })),
+);
 
 const enableStidMap = computed(() => {
   if (!mainStore.stories?.main?.story) return new Map();
@@ -40,15 +50,11 @@ const enableStidMap = computed(() => {
 });
 
 const download = async (section: Section) => {
+  const tasks = new Array<Promise<unknown>>();
   state.loadStatusMessage = '開始中…';
   state.workingSectionId = section.section_id;
 
-  const zip = new JSZip();
-  const sectionDir = zip.folder(section.name);
-  if (!sectionDir) {
-    state.loadStatusMessage = '【例外】なんかディレクトリ作るの失敗した。';
-    throw '【例外】なんかディレクトリ作るの失敗した。';
-  }
+  const zip = new ZipDir(section.name);
 
   // ストーリー
   state.loadStatusMessage = 'ストーリーデータのダウンロード中…';
@@ -58,18 +64,24 @@ const download = async (section: Section) => {
     throw '【例外】ストーリーの取得失敗した。';
   }
 
-  const filledStories = await fillStoryData(stories, enableStidMap.value);
   const storyElements = new Array<StoryElement>();
+  const filledStories = await fillStoryData(stories, enableStidMap.value);
   for await (const s of filledStories) {
-    await downloadStory(sectionDir, s, section);
+    tasks.push(downloadStory(zip, s, section));
     storyElements.push(...s.elements);
   }
-  await downloadBg(sectionDir, storyElements);
-  await downloadSectionImage(sectionDir, section);
 
+  tasks.push(downloadBg(zip, storyElements));
+  tasks.push(
+    zip.fileFromUrlAsync(
+      `${section.section_id}.jpg`,
+      `https://ancl.jp/img/game/event/section/${section.section_id}.jpg`,
+    ),
+  );
   // zipアーカイブ
   state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
-  const blob = await zip.generateAsync({ type: 'blob' });
+  await Promise.all(tasks);
+  const blob = await zip.end();
 
   state.loadStatusMessage = 'リンク生成中…';
   const a = document.createElement('a');
@@ -82,21 +94,6 @@ const download = async (section: Section) => {
   state.loadStatusMessage = '';
   state.workingSectionId = '';
 };
-
-const items = computed(() =>
-  Object.values(mainStore.stories?.main?.section ?? {})
-    .sort((a, b) => a.order - b.order)
-    .filter((x) =>
-      state.filterNotDownloadedYet
-        ? !downloadHistoryStore.sectionDownloadHistory.find((h) => h.id === x.section_id)
-        : true,
-    )
-    .map((x) => ({
-      ...x,
-      title: `${x.chapter} ${x.name} : ${x.section_id}`,
-      subtitle: '',
-    })),
-);
 </script>
 
 <template>

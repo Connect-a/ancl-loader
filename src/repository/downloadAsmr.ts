@@ -1,6 +1,6 @@
 import { decode, encode } from '@msgpack/msgpack';
 import { useMainStore } from '@/store';
-import type JSZip from 'jszip';
+import { ZipDir } from '@/scripts/zip';
 import type { AsmrChapter } from '@/@types';
 
 export const fetchChapterId = async (ch_id: number) => {
@@ -26,7 +26,10 @@ export const fetchChapterId = async (ch_id: number) => {
   return s.result?.chapter_id;
 };
 
-export const downloadChapter = async (dir: JSZip, chapter: AsmrChapter & { chapterId: string }) => {
+export const downloadChapter = async (
+  dir: ZipDir,
+  chapter: AsmrChapter & { chapterId: string },
+) => {
   if (!chapter.chapterId) return;
   const htmlRes = await fetch(
     `https://ancl.jp/img/game/event/${chapter.chapterId}/${chapter.chapterId.toLowerCase()}.html`,
@@ -36,12 +39,20 @@ export const downloadChapter = async (dir: JSZip, chapter: AsmrChapter & { chapt
   const imagePath = (e.match(/\/(image\/.+?\.jpg)/) ?? [])[1] ?? '';
   const voicePath = (e.match(/\/(voice\/.+?\.m4a)/) ?? [])[1] ?? '';
 
-  const imageRes = await fetch(`https://ancl.jp/img/game/event/${chapter.chapterId}/${imagePath}`);
-  const voiceRes = await fetch(`https://ancl.jp/img/game/event/${chapter.chapterId}/${voicePath}`);
-
   const chaperDir = dir.folder(`${chapter.order.toString().padStart(2, '0')}_${chapter.name}`);
-
-  chaperDir?.file('source.html', e);
-  chaperDir?.file(`${imagePath.replace('image/', '')}`, imageRes.arrayBuffer());
-  chaperDir?.file(`${voicePath.replace('voice/', '')}`, voiceRes.arrayBuffer());
+  const tasks = new Array<Promise<unknown>>();
+  tasks.push(chaperDir?.fileAsync('source.html', e));
+  tasks.push(
+    chaperDir?.fileFromUrlAsync(
+      `${imagePath.replace('image/', '')}`,
+      `https://ancl.jp/img/game/event/${chapter.chapterId}/${imagePath}`,
+    ),
+  );
+  tasks.push(
+    chaperDir?.fileFromUrlAsync(
+      `${voicePath.replace('voice/', '')}`,
+      `https://ancl.jp/img/game/event/${chapter.chapterId}/${voicePath}`,
+    ),
+  );
+  Promise.all(tasks);
 };

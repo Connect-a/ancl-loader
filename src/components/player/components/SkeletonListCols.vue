@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
-import JSZip from 'jszip';
+import { type IUnzipper } from '@/scripts/zip';
 import { selectNext, selectPrev } from '@/scripts/selectConrol';
 import { spine } from '@/spine-ts/3.7/spine-player';
 import '@/spine-ts/3.7/spine-player.css';
 
-const props = defineProps<{ jszip: JSZip; fileNames: Array<string> }>();
+const props = defineProps<{ zip: IUnzipper; fileNames: Array<string> }>();
 
 const state = reactive({
   skeleton: {
@@ -34,19 +34,21 @@ const selectSpine = async () => {
 
   const targetFiles = props.fileNames.filter((x) => x.includes(state.skeleton.target));
 
-  const png = `data:image/png;base64,${await props.jszip
-    .file(targetFiles.find((x) => x.includes('.png')) ?? '')
-    ?.async('base64')}`;
+  const png = await props.zip.readFileAsData64UriAsync(
+    targetFiles.find((x) => x.includes('.png')) ?? '',
+    'image/png',
+  );
   if (!png) return;
-  const json = await props.jszip
-    .file(targetFiles.find((x) => x.includes('.json')) ?? '')
-    ?.async('base64');
+  const json = await props.zip.readFileAsData64UriAsync(
+    targetFiles.find((x) => x.includes('.json')) ?? '',
+    'application/json',
+  );
   const atlas = (
-    await props.jszip.file(targetFiles.find((x) => x.includes('.atlas')) ?? '')?.async('text')
+    await props.zip.readFileAsTextAsync(targetFiles.find((x) => x.includes('.atlas')) ?? '')
   )?.replace('skeleton.png', png);
 
   const conf: Partial<spine.SpinePlayerConfig> = {
-    jsonUrl: `data:application/json;base64,${json}`,
+    jsonUrl: json,
     atlasUrl: `data:text/plain;base64,${window.btoa(atlas ?? '')}`,
     backgroundColor: '#666666',
     premultipliedAlpha: false,

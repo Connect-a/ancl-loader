@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive } from 'vue';
-import JSZip from 'jszip';
+import { ZipDir } from '@/scripts/zip';
 import dayjs from 'dayjs';
 import { downloadCharacter, downloadCharacterSkeleton } from '@/repository/downloadOtherCharacters';
 import chara from '@/repository/characters.json';
@@ -23,22 +23,17 @@ const downloadCharacters = async () => {
   state.loadStatusMessage = '開始中…';
   state.workingId = 'characters';
 
-  const zip = new JSZip();
-  const charaDir = zip.folder('キャラクター');
-  if (!charaDir) {
-    state.loadStatusMessage = '【例外】なんかディレクトリ作るの失敗した。';
-    throw '【例外】なんかディレクトリ作るの失敗した。';
-  }
+  const zip = new ZipDir('キャラクター');
 
   // 基本
   state.loadStatusMessage = '基本情報のダウンロード中…';
   const createCanvas = () => document.createElement('canvas');
-  await downloadCharacter(charaDir, createCanvas);
-  await downloadCharacterSkeleton(charaDir);
+  await downloadCharacter(zip, createCanvas);
+  await downloadCharacterSkeleton(zip);
 
   // zipアーカイブ
   state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
-  const blob = await zip.generateAsync({ type: 'blob' });
+  const blob = await zip.end();
 
   state.loadStatusMessage = 'リンク生成中…';
   const a = document.createElement('a');
@@ -51,15 +46,11 @@ const downloadCharacters = async () => {
 };
 
 const downloadEnemies = async () => {
+  const tasks = new Array<Promise<unknown>>();
   state.loadStatusMessage = '開始中…';
   state.workingId = 'enemies';
 
-  const zip = new JSZip();
-  const dir = zip.folder('エネミー');
-  if (!dir) {
-    state.loadStatusMessage = '【例外】なんかディレクトリ作るの失敗した。';
-    throw '【例外】なんかディレクトリ作るの失敗した。';
-  }
+  const zip = new ZipDir('エネミー');
 
   if (!mainStore.enemy) {
     state.loadStatusMessage = '【例外】エネミーの取得失敗した。';
@@ -67,54 +58,52 @@ const downloadEnemies = async () => {
   }
 
   for (const enemy of Object.values(mainStore.enemy)) {
-    const images = [
-      {
-        name: 'icon.png',
-        res: fetch(`https://ancl.jp/img/game/monster/${enemy.img}/graphic/${enemy.img}_icon.png`),
-      },
-      {
-        name: 'pc.png',
-        res: fetch(`https://ancl.jp/img/game/monster/${enemy.img}/graphic/${enemy.img}_pc.png`),
-      },
-      {
-        name: 'ok.png',
-        res: fetch(`https://ancl.jp/img/game/monster/${enemy.img}/graphic/${enemy.img}_ok.png`),
-      },
-    ];
-    const skeletons = [
-      {
-        name: 'skeleton.json',
-        res: fetch(`https://ancl.jp/img/game/monster/${enemy.img}/spine/skeleton.json`),
-      },
-      {
-        name: 'skeleton.png',
-        res: fetch(`https://ancl.jp/img/game/monster/${enemy.img}/spine/skeleton.png`),
-      },
-      {
-        name: 'skeleton.atlas',
-        res: fetch(`https://ancl.jp/img/game/monster/${enemy.img}/spine/skeleton.atlas`),
-      },
-    ];
-
-    const enemyDir = dir.folder(`${enemy.section_id}_${enemy.name}`);
-    enemyDir?.file('meta.json', JSON.stringify(enemy));
-    const imageDir = enemyDir?.folder('image');
-    for (const image of images) {
-      const r = await image.res;
-      if (!r.ok) continue;
-      imageDir?.file(image.name, r.blob());
-    }
-    const skeletonDir = enemyDir?.folder('skeleton');
-    for (const skeleton of skeletons) {
-      const r = await skeleton.res;
-      if (!r.ok) continue;
-      skeletonDir?.file(skeleton.name, r.blob());
-    }
+    const enemyDir = zip.folder(`${enemy.section_id}_${enemy.name}`);
+    tasks.push(enemyDir?.fileAsync('meta.json', JSON.stringify(enemy)));
+    const imageDir = enemyDir.folder('image');
+    tasks.push(
+      imageDir.fileFromUrlAsync(
+        'icon.png',
+        `https://ancl.jp/img/game/monster/${enemy.img}/graphic/${enemy.img}_icon.png`,
+      ),
+    );
+    tasks.push(
+      imageDir.fileFromUrlAsync(
+        'pc.png',
+        `https://ancl.jp/img/game/monster/${enemy.img}/graphic/${enemy.img}_pc.png`,
+      ),
+    );
+    tasks.push(
+      imageDir.fileFromUrlAsync(
+        'ok.png',
+        `https://ancl.jp/img/game/monster/${enemy.img}/graphic/${enemy.img}_ok.png`,
+      ),
+    );
+    const skeletonDir = enemyDir.folder('skeleton');
+    tasks.push(
+      skeletonDir.fileFromUrlAsync(
+        'skeleton.json',
+        `https://ancl.jp/img/game/monster/${enemy.img}/spine/skeleton.json`,
+      ),
+    );
+    tasks.push(
+      skeletonDir.fileFromUrlAsync(
+        'skeleton.png',
+        `https://ancl.jp/img/game/monster/${enemy.img}/spine/skeleton.png`,
+      ),
+    );
+    tasks.push(
+      skeletonDir.fileFromUrlAsync(
+        'skeleton.atlas',
+        `https://ancl.jp/img/game/monster/${enemy.img}/spine/skeleton.atlas`,
+      ),
+    );
   }
 
+  await Promise.all(tasks);
   // zipアーカイブ
   state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
-  const blob = await zip.generateAsync({ type: 'blob' });
+  const blob = await zip.end();
 
   state.loadStatusMessage = 'リンク生成中…';
   const a = document.createElement('a');
@@ -127,15 +116,11 @@ const downloadEnemies = async () => {
 };
 
 const downloadRadio = async () => {
+  const tasks = new Array<Promise<unknown>>();
   state.loadStatusMessage = '開始中…';
   state.workingId = 'radio';
 
-  const zip = new JSZip();
-  const dir = zip.folder('ラジオ');
-  if (!dir) {
-    state.loadStatusMessage = '【例外】なんかディレクトリ作るの失敗した。';
-    throw '【例外】なんかディレクトリ作るの失敗した。';
-  }
+  const zip = new ZipDir('ラジオ');
 
   if (!mainStore.radio) {
     state.loadStatusMessage = '【例外】ラジオの取得失敗した。';
@@ -149,41 +134,37 @@ const downloadRadio = async () => {
       0,
     );
   const query = `?h=${new Date().getTime()}${getHashCode(mainStore.radio.radio_guide)}`;
-  {
-    const r = await fetch(`https://ancl.jp/img/game/asset/radio/list.jpg${query}`);
-    if (r.ok) dir.file('_番組表.jpg', r.blob());
-  }
-
-  //
-  const programs = Object.entries(mainStore.radio.radio_guide).flatMap(([_id, p]) =>
-    p.list.map((x) => ({
-      name: `${p.start.replace(':', '')}_${p.name}_${x}`,
-      res: fetch(`https://ancl.jp/img/game/asset/radio/pg/${x}.m4a`),
-    })),
+  tasks.push(
+    zip.fileFromUrlAsync('_番組表.jpg', `https://ancl.jp/img/game/asset/radio/list.jpg${query}`),
   );
+
   const radioLoggingTasks = new Array<Promise<Response>>();
-  for (const p of programs) {
-    radioLoggingTasks.push(
-      fetch(
-        `https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=radio_${p.name}_${
-          query.split('=')[1]
-        }?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`,
-        {
-          method: 'GET',
-          mode: 'no-cors',
-          cache: 'no-cache',
-          credentials: 'same-origin',
-        },
-      ),
-    );
-    const r = await p.res;
-    if (!r.ok) continue;
-    dir.file(`${p.name}.m4a`, r.blob());
+  for (const guide of Object.values(mainStore.radio.radio_guide)) {
+    for (const x of guide.list) {
+      const name = `${guide.start.replace(':', '')}_${guide.name}_${x}`;
+      tasks.push(
+        zip.fileFromUrlAsync(`${name}.m4a`, `https://ancl.jp/img/game/asset/radio/pg/${x}.m4a`),
+      );
+      radioLoggingTasks.push(
+        fetch(
+          `https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=radio_${name}_${
+            query.split('=')[1]
+          }?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`,
+          {
+            method: 'GET',
+            mode: 'no-cors',
+            cache: 'no-cache',
+            credentials: 'same-origin',
+          },
+        ),
+      );
+    }
   }
 
+  await Promise.all(tasks);
   // zipアーカイブ
   state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
-  const blob = await zip.generateAsync({ type: 'blob' });
+  const blob = await zip.end();
 
   state.loadStatusMessage = 'リンク生成中…';
   const a = document.createElement('a');

@@ -1,4 +1,4 @@
-import JSZip from 'jszip';
+import { ZipDir } from '@/scripts/zip';
 import type { Character } from '@/@types';
 import specialVoice from './specialVoice.json';
 import voice from './voice.json';
@@ -8,28 +8,27 @@ import { loadCharaImage } from './anclCharaImageLoader';
 import { useMainStore } from '@/store';
 
 export const downloadCharacter = async (
-  dir: JSZip,
+  zipDir: ZipDir,
   character: Character,
   canvas: HTMLCanvasElement,
 ) => {
+  const tasks = new Array<Promise<unknown>>();
   const mainStore = useMainStore();
 
   const V413Text =
     (molabLeft as Array<{ id: string; text: string }>).find((x) => x.id === character.chara_id)
       ?.text ?? '';
 
-  dir?.file(
-    'meta.json',
-    JSON.stringify(
-      {
+  tasks.push(
+    zipDir.fileAsync(
+      'meta.json',
+      JSON.stringify({
         id: character.chara_id,
         name: character.name,
         msg: character.msg,
         voiceTextMap: V413Text ? { V413: V413Text } : undefined,
         profile: character.profile,
-      },
-      null,
-      '  ',
+      }),
     ),
   );
 
@@ -67,18 +66,17 @@ export const downloadCharacter = async (
     voiceList.push(...af);
 
     // NOTE:重複除去してからfetch
-    const voices = [...new Map(voiceList.map((v) => [v.id, v.type])).entries()]
-      .filter(([id, _type]) => id)
-      .map(([id, _type]) => ({
-        name: `${id}.m4a`,
-        res: fetch(`https://ancl.jp/img/game/chara/${character.chara_id}/voice/${id}.m4a`),
-      }));
-    if (voices.length) {
-      const voiceDir = dir?.folder('voice');
-      for (const x of voices) {
-        const d = await x.res;
-        if (!d.ok) continue;
-        voiceDir?.file(x.name, d.blob());
+    const voices = new Set(voiceList.map((v) => v.id).filter((x) => x));
+    if (voices.size) {
+      const voiceDir = zipDir.folder(`voice`);
+      for (const id of voices) {
+        const name = `${id}.m4a`;
+        tasks.push(
+          voiceDir?.fileFromUrlAsync(
+            name,
+            `https://ancl.jp/img/game/chara/${character.chara_id}/voice/${id}.m4a`,
+          ),
+        );
       }
     }
   }
@@ -87,6 +85,8 @@ export const downloadCharacter = async (
   const imageSuffixList = imageSuffixes as Array<string>;
   for (let i = 1; i <= 27; i++) imageSuffixList.push(`sd_${String(i).padStart(2, '0')}.png`);
   for (let i = 51; i <= 57; i++) imageSuffixList.push(`sd_${String(i).padStart(2, '0')}.png`);
-  const imageDir = dir?.folder('image');
-  await loadCharaImage(imageDir ?? dir, canvas, base, imageSuffixList);
+  const imageDir = zipDir?.folder('image');
+  await loadCharaImage(imageDir ?? zipDir, canvas, base, imageSuffixList);
+
+  await Promise.all(tasks);
 };

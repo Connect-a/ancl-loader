@@ -1,13 +1,8 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
-import JSZip from 'jszip';
+import { ZipDir } from '@/scripts/zip';
 import type { Section, StoryElement } from '@/@types';
-import {
-  downloadStory,
-  downloadBg,
-  downloadSectionImage,
-  fillStoryData,
-} from '@/repository/downloadStory';
+import { downloadStory, downloadBg, fillStoryData } from '@/repository/downloadStory';
 import { useMainStore } from '@/store';
 import { useDownloadHistoryStore } from '@/store/downloadHistoryStore';
 import { useAdditionalDataStore } from '@/store/additionalDataStore';
@@ -85,15 +80,11 @@ const items = computed(() => {
 });
 
 const download = async (section: Section) => {
+  const tasks = new Array<Promise<unknown>>();
   state.loadStatusMessage = '開始中…';
   state.workingSectionId = section.section_id;
 
-  const zip = new JSZip();
-  const sectionDir = zip.folder(section.name);
-  if (!sectionDir) {
-    state.loadStatusMessage = '【例外】なんかディレクトリ作るの失敗した。';
-    throw '【例外】なんかディレクトリ作るの失敗した。';
-  }
+  const zip = new ZipDir(section.name);
 
   // ストーリー
   state.loadStatusMessage = 'ストーリーデータのダウンロード中…';
@@ -107,7 +98,7 @@ const download = async (section: Section) => {
   const storyElements = new Array<StoryElement>();
   const filledStories = await fillStoryData(stories, enableStidMap.value);
   for await (const s of filledStories) {
-    await downloadStory(sectionDir, s, section);
+    tasks.push(downloadStory(zip, s, section));
     storyElements.push(...s.elements);
     if (!s.storyId) continue;
     storyIdLoggingTasks.push(
@@ -123,26 +114,29 @@ const download = async (section: Section) => {
     );
   }
 
-  await downloadBg(sectionDir, storyElements);
-  await downloadSectionImage(sectionDir, section);
+  tasks.push(downloadBg(zip, storyElements));
+  tasks.push(
+    zip.fileFromUrlAsync(
+      `${section.section_id}.jpg`,
+      `https://ancl.jp/img/game/event/section/${section.section_id}.jpg`,
+    ),
+  );
   // イベントロゴ、背景、BGM
   if (sectionEventIdMap.value.has(section.section_id)) {
     const eventId = sectionEventIdMap.value.get(section.section_id);
-    const rLogo = await fetch(`${_eventAssetPath}/${eventId}/logo.png`);
-    if (rLogo.ok) sectionDir.file('logo.png', rLogo.blob());
-    const rBgm = await fetch(`${_eventAssetPath}/${eventId}/bgm.m4a`);
-    if (rBgm.ok) sectionDir.file('bgm.m4a', rBgm.blob());
-    const rBg = await fetch(`${_eventAssetPath}/${eventId}/bg.jpg`);
-    if (rBg.ok) sectionDir.file('bg.jpg', rBg.blob());
-    const leftChara = await fetch(`${_eventAssetPath}/${eventId}/left_chara.json`);
-    if (leftChara.ok) {
-      sectionDir.file('left_chara.json', leftChara.clone().blob());
-      const leftCharaJson = await leftChara.json();
-      if (Array.isArray(leftCharaJson?.howto)) {
-        for (const x of Array.from(leftCharaJson.howto).flat()) {
-          if (!`${x}`.startsWith('EVE')) continue;
-          const howto = await fetch(`${_eventAssetPath}/${eventId}/${x}.jpg`);
-          sectionDir.file(`${x}.jpg`, howto.blob());
+    tasks.push(zip.fileFromUrlAsync('logo.png', `${_eventAssetPath}/${eventId}/logo.png`));
+    tasks.push(zip.fileFromUrlAsync('bgm.m4a', `${_eventAssetPath}/${eventId}/bgm.m4a`));
+    tasks.push(zip.fileFromUrlAsync('bg.jpg', `${_eventAssetPath}/${eventId}/bg.jpg`));
+    const resLeftChara = await fetch(`${_eventAssetPath}/${eventId}/left_chara.json`);
+    if (resLeftChara.ok) {
+      tasks.push(zip.fileAsync('left_chara.json', await resLeftChara.clone().blob()));
+      const leftCharaJson = await resLeftChara.json();
+      if (leftCharaJson) {
+        if (Array.isArray(leftCharaJson?.howto)) {
+          for (const x of Array.from(leftCharaJson.howto).flat()) {
+            if (!`${x}`.startsWith('EVE')) continue;
+            tasks.push(zip.fileFromUrlAsync(`${x}.jpg`, `${_eventAssetPath}/${eventId}/${x}.jpg`));
+          }
         }
       }
     }
@@ -150,7 +144,8 @@ const download = async (section: Section) => {
 
   // zipアーカイブ
   state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
-  const blob = await zip.generateAsync({ type: 'blob' });
+  await Promise.all(tasks);
+  const blob = await zip.end();
 
   state.loadStatusMessage = 'リンク生成中…';
   const a = document.createElement('a');

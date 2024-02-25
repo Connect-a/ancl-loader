@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
 import { mdiPlus } from '@mdi/js';
-import JSZip from 'jszip';
+import { type IUnzipper } from '@/scripts/zip';
 import AudioContainer from './AudioContainer.vue';
 import { selectNext, selectPrev } from '@/scripts/selectConrol';
 
@@ -20,7 +20,7 @@ const messageImageMap = new Map<string, string>([
 ]);
 
 const props = defineProps<{
-  jszip: JSZip;
+  zip: IUnzipper;
   charaName: string;
   fileNames: Array<string>;
   volume: number;
@@ -43,8 +43,7 @@ watch(
       state.messageImageMap.set(
         key,
         toUrl(
-          (await props.jszip.file(`${props.charaName}/image/${value}`)?.async('blob')) ??
-            new Blob(),
+          (await props.zip.readFileAsBlobAsync(`${props.charaName}/image/${value}`)) ?? new Blob(),
         ),
       );
     }
@@ -54,16 +53,16 @@ watch(
 const audioFileNames = computed(() => props.fileNames.filter((x) => x.includes('m4a')).sort());
 
 const selectAudio = async () => {
-  const t = props.jszip.file(state.audio.selected);
+  const t = await props.zip.readFileAsBlobAsync(state.audio.selected);
   if (!t) return;
   const e = document.getElementById('audio-sample') as HTMLAudioElement;
   if (!e) return;
-  e.src = toUrl(await t.async('blob'));
+  e.src = toUrl(t);
   e.play();
 };
 
 const addAudio = async () => {
-  const blob = await props.jszip.file(state.audio.selected)?.async('blob');
+  const blob = await props.zip.readFileAsBlobAsync(state.audio.selected);
   if (!blob) return;
   state.audio.stack.push({
     name: state.audio.selected,
@@ -98,7 +97,7 @@ const playAudioAsync = (audio: HTMLAudioElement, dataMap: DOMStringMap) =>
 const playAudioList = async () => {
   const audioList = state.audio.stack.map(async (x) => {
     const audio = new Audio();
-    audio.src = toUrl((await props.jszip.file(x.name)?.async('blob')) ?? new Blob());
+    audio.src = toUrl((await props.zip.readFileAsBlobAsync(x.name)) ?? new Blob());
 
     const v = document.getElementById(x.name);
     return { dataMap: v?.dataset ?? new DOMStringMap(), audio };
