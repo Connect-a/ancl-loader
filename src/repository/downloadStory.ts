@@ -1,4 +1,4 @@
-import JSZip from 'jszip';
+import type { ZipDir } from '@/scripts/zip';
 import type { Character, Section, Story, StoryElement } from '@/@types';
 import { decode, encode } from '@msgpack/msgpack';
 import { useMainStore } from '@/store';
@@ -54,15 +54,16 @@ export const fetchStoryElements = async (story: Story, storyId?: string) => {
 };
 
 export const downloadStory = async (
-  dir: JSZip,
+  dir: ZipDir,
   story: Story & { storyId: string | undefined; elements: StoryElement[] },
   parent: Character | Section,
 ) => {
-  const storyDir = dir?.folder(
+  const tasks = new Array<Promise<unknown>>();
+  const storyDir = dir.folder(
     `${story.order.toString().padStart(2, '0')}_${story.chapter}_${story.name}`,
   );
   // 元データ
-  storyDir?.file('source.json', JSON.stringify(story.elements, null, '  '));
+  tasks.push(storyDir.fileAsync('source.json', JSON.stringify(story.elements, null, '  ')));
 
   // テキスト
   {
@@ -85,7 +86,7 @@ export const downloadStory = async (
 
       prevElement = e;
     }
-    storyDir?.file('text.txt', textList.join(''));
+    tasks.push(storyDir.fileAsync('text.txt', textList.join('')));
   }
 
   // ボイス
@@ -97,78 +98,75 @@ export const downloadStory = async (
       e.p4_chara_voice_text,
       e.p5_chara_voice_text,
     ])
-    .filter((x) => x)
-    .map((x) => ({
-      name: x,
-      res: fetch(`https://ancl.jp/img/game/event/${story.img}/voice/${x}`),
-    }));
+    .filter((x) => x);
   if (voices.length) {
-    const voiceDir = storyDir?.folder('voice');
+    const voiceDir = storyDir.folder('voice');
     for (const x of voices) {
-      const res = await x.res;
-      if (res.ok) voiceDir?.file(x.name, res.blob());
+      tasks.push(
+        voiceDir.fileFromUrlAsync(x, `https://ancl.jp/img/game/event/${story.img}/voice/${x}`),
+      );
     }
   }
 
   // 動画
   const movieList = new Set(story.elements.map((e) => e.movie_text).filter((x) => x));
-  const movies = Array.from(movieList).map((x) => ({
-    name: x,
-    res: fetch(`https://ancl.jp/img/game/event/${story.img}/movie/${x}`),
-  }));
-  if (movies.length) {
-    const movieDir = storyDir?.folder('movie');
-    for (const x of movies) {
-      const res = await x.res;
-      if (res.ok) movieDir?.file(x.name, res.blob());
+  if (movieList.size) {
+    const movieDir = storyDir.folder('movie');
+    for (const movie of movieList) {
+      tasks.push(
+        movieDir.fileFromUrlAsync(
+          movie,
+          `https://ancl.jp/img/game/event/${story.img}/movie/${movie}`,
+        ),
+      );
     }
   }
 
   // 画像
+  const imageDir = storyDir.folder('image');
   const imageList = new Set(story.elements.map((e) => e.bg_img_text).filter((x) => x));
-  const images = Array.from(imageList).map((x) => ({
-    name: x,
-    res: fetch(`https://ancl.jp/img/game/event/${story.img}/image/${x}`),
-  }));
+  for (const image of imageList) {
+    tasks.push(
+      imageDir.fileFromUrlAsync(
+        image,
+        `https://ancl.jp/img/game/event/${story.img}/image/${image}`,
+      ),
+    );
+  }
   const iconList = new Map(story.elements.map((e) => [e.backlog_icon_id, e.speaker]));
-  images.push(
-    ...Array.from(iconList)
-      .filter(([k, _v]) => k && k !== '1')
-      .map(([k, v]) => ({
-        name: `${k}_${v}_ss.png`,
-        res: fetch(`https://ancl.jp/img/game/chara/${k}/graphic/${k}_ss.png`),
-      })),
-  );
-  const imageDir = storyDir?.folder('image');
-  for (const x of images) {
-    const res = await x.res;
-    if (res.ok) imageDir?.file(x.name, res.blob());
+  for (const [k, v] of iconList) {
+    if (!k || k === '1') continue;
+    tasks.push(
+      imageDir.fileFromUrlAsync(
+        `${k}_${v}_ss.png`,
+        `https://ancl.jp/img/game/chara/${k}/graphic/${k}_ss.png`,
+      ),
+    );
   }
   for (const pref of ['s', 'n', 'r']) {
     const n = `${story.img}_${pref}thumb.jpg`;
-    const res = await fetch(`https://ancl.jp/img/game/event/${story.img}/thumb/${n}`);
-    if (res.ok) imageDir?.file(n, res.blob());
+    tasks.push(
+      imageDir.fileFromUrlAsync(n, `https://ancl.jp/img/game/event/${story.img}/thumb/${n}`),
+    );
   }
+  await Promise.all(tasks);
 };
 
-export const downloadBg = async (dir: JSZip, stories: StoryElement[]) => {
+export const downloadBg = async (dir: ZipDir, stories: StoryElement[]) => {
+  const tasks = new Array<Promise<unknown>>();
   // BG画像集
   const bgImgDir = dir.folder('image');
   const bgImgs = stories.map((x) => x.bg_img_id).filter((x) => x !== '1');
   for (const x of new Set(bgImgs)) {
-    const res = await fetch(`https://ancl.jp/img/game/asset/bg/story/${x}.jpg`);
-    if (res.ok) bgImgDir?.file(`${x}.jpg`, res.blob());
+    tasks.push(
+      bgImgDir.fileFromUrlAsync(`${x}.jpg`, `https://ancl.jp/img/game/asset/bg/story/${x}.jpg`),
+    );
   }
   // BGM集
   const bgmDir = dir.folder('bgm');
   const bgms = stories.map((x) => x.bg_bgm).filter((x) => x !== '1');
   for (const x of new Set(bgms)) {
-    const res = await fetch(`https://ancl.jp/img/game/sound/bgm/${x}.m4a`);
-    if (res.ok) bgmDir?.file(`${x}.m4a`, res.blob());
+    tasks.push(bgmDir.fileFromUrlAsync(`${x}.m4a`, `https://ancl.jp/img/game/sound/bgm/${x}.m4a`));
   }
-};
-
-export const downloadSectionImage = async (dir: JSZip, section: Section) => {
-  const r = await fetch(`https://ancl.jp/img/game/event/section/${section.section_id}.jpg`);
-  if (r.ok) dir.file(`${section.section_id}.jpg`, r.blob());
+  await Promise.all(tasks);
 };

@@ -4,7 +4,7 @@ import { useMainStore } from '@/store';
 import { useAdditionalDataStore } from '@/store/additionalDataStore';
 import { downloadChapter, fetchChapterId } from '@/repository/downloadAsmr';
 import type { AsmrSection } from '@/@types';
-import JSZip from 'jszip';
+import { ZipDir } from '@/scripts/zip';
 
 const mainStore = useMainStore();
 const additionalDataStore = useAdditionalDataStore();
@@ -34,21 +34,21 @@ const additionalChapter = (additionalDataStore.voiceAdditionalData ?? []).map((x
 }));
 
 const download = async (section: AsmrSection) => {
+  const tasks = new Array<Promise<unknown>>();
   state.loadStatusMessage = '開始中…';
   state.workingSectionId = section.section_id;
 
-  const zip = new JSZip();
-  const sectionDir = zip.folder(section.name);
-  if (!sectionDir) {
-    state.loadStatusMessage = '【例外】なんかディレクトリ作るの失敗した。';
-    throw '【例外】なんかディレクトリ作るの失敗した。';
-  }
+  const zip = new ZipDir(section.name);
 
   // セクション
   state.loadStatusMessage = 'セクションのダウンロード中…';
-  sectionDir.file('section.json', JSON.stringify(section));
-  const imageRes = await fetch(`https://ancl.jp/img/game/event/section/${section.img}.jpg`);
-  sectionDir.file(`${section.img}.jpg`, imageRes.arrayBuffer());
+  tasks.push(zip.fileAsync('section.json', JSON.stringify(section)));
+  tasks.push(
+    zip.fileFromUrlAsync(
+      `${section.img}.jpg`,
+      `https://ancl.jp/img/game/event/section/${section.img}.jpg`,
+    ),
+  );
 
   // チャプター
   const chapterIdLoggingTasks = new Array<Promise<Response>>();
@@ -73,24 +73,27 @@ const download = async (section: AsmrSection) => {
         ),
       );
 
-      await downloadChapter(sectionDir, { ...chapter, chapterId });
+      tasks.push(downloadChapter(zip, { ...chapter, chapterId }));
     }
   }
 
   // サンプル
   if (section.sample_id) {
     state.loadStatusMessage = 'サンプルのダウンロード中…';
-    await downloadChapter(sectionDir, {
-      ch_id: 0,
-      chapterId: section.sample_id,
-      name: 'サンプル',
-      order: 0,
-    });
+    tasks.push(
+      downloadChapter(zip, {
+        ch_id: 0,
+        chapterId: section.sample_id,
+        name: 'サンプル',
+        order: 0,
+      }),
+    );
   }
 
+  await Promise.all(tasks);
   // zipアーカイブ
   state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
-  const blob = await zip.generateAsync({ type: 'blob' });
+  const blob = await zip.end();
 
   state.loadStatusMessage = 'リンク生成中…';
   const a = document.createElement('a');

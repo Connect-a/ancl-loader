@@ -11,7 +11,7 @@ import {
 } from '@mdi/js';
 import type { StoryElement } from '@/@types';
 import { selectNext, selectPrev } from '@/scripts/selectConrol';
-import type JSZip from 'jszip';
+import { type IUnzipper } from '@/scripts/zip';
 
 type CardTheme = 'dark' | 'light';
 type CardStyle = {
@@ -23,7 +23,7 @@ type CardStyle = {
 
 const toUrl = URL.createObjectURL;
 const props = defineProps<{
-  jszip: JSZip;
+  zip: IUnzipper;
   fileNames: Array<string>;
   volume: number;
 }>();
@@ -80,7 +80,15 @@ const saveStyle = () => {
 };
 
 const loadStyle = () => {
-  const style = JSON.parse(localStorage.getItem('playerCardStyle') ?? '{}') as CardStyle;
+  const style = JSON.parse(
+    localStorage.getItem('playerCardStyle') ??
+      JSON.stringify({
+        fonSize: 1,
+        theme: 'dark',
+        width: 'initial',
+        opacity: 1,
+      } as CardStyle),
+  ) as CardStyle;
   state.fontSize = style.fonSize;
   state.theme = style.theme;
   state.style.width = style.width;
@@ -89,24 +97,24 @@ const loadStyle = () => {
 
 const setStoryElements = async () => {
   state.elements.splice(0);
-  state.elements.push(
-    ...JSON.parse((await props.jszip.file(state.target)?.async('string')) ?? '[]'),
-  );
+  state.elements.push(...JSON.parse((await props.zip.readFileAsTextAsync(state.target)) ?? '[]'));
 };
 
 const changeStoryElement = async () => {
   const audio = document.getElementById('story-audio') as HTMLAudioElement;
   if (!audio) return;
-  const targetVoice = `${state.target}/${
+  const text = `${
     state.element.p1_chara_voice_text +
     state.element.p2_chara_voice_text +
     state.element.p3_chara_voice_text +
     state.element.p4_chara_voice_text +
     state.element.p5_chara_voice_text
-  }`.replace('source.json', 'voice');
-  const t = props.jszip.file(targetVoice);
+  }`;
+  if (!text) return;
+  const targetVoice = `${state.target}/${text}`.replace('source.json', 'voice');
+  const t = await props.zip.readFileAsBlobAsync(targetVoice);
   if (!t) return;
-  audio.src = toUrl(await t.async('blob'));
+  audio.src = toUrl(t);
   audio.play();
 };
 

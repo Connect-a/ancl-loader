@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
 import { mdiVolumeHigh, mdiArrowExpand, mdiCheckerboard } from '@mdi/js';
-import JSZip from 'jszip';
+import { Unzipper } from '@/scripts/zip';
 import type { StoryElement } from '@/@types';
 import VideoContainer, { type VideoMedia } from './components/VideoContainer.vue';
 import SkeletonViewCols from './components/SkeletonListCols.vue';
@@ -34,7 +34,7 @@ const msgMap = new Map<string, string>([
 ]);
 
 const state = reactive({
-  jszip: new JSZip(),
+  zip: new Unzipper(),
   loadingNow: false,
   dragOn: false,
   name: '',
@@ -56,9 +56,11 @@ const state = reactive({
 });
 
 const fileNames = computed(() =>
-  Object.entries(state.jszip.files)
-    .filter(([_key, file]) => !file.dir)
-    .map(([key, _file]) => key),
+  state.zip.entries
+    .filter((x) => !x.directory)
+    .filter((x) => x.filename)
+    .map((x) => x.filename)
+    .toSorted(),
 );
 
 const movieFileNames = computed(() => fileNames.value.filter((x) => x.includes('mp4')));
@@ -68,38 +70,36 @@ const imageFileNames = computed(() =>
 
 const readAllFiles = async (file: File) => {
   if (!file.name.includes('zip')) return;
-  state.jszip = await JSZip.loadAsync(file);
+  await state.zip.initAsync(file);
   // 音声の内容設定
-  for (const v of Object.values(state.jszip.files)) {
-    if (v.name.includes('.json')) {
-      const obj = JSON.parse(await v.async('string'));
-      if (v.name.includes('source.json') && Array.isArray(obj)) {
-        for (const t of obj) {
-          const vo =
-            t.p1_chara_voice_text +
-            t.p2_chara_voice_text +
-            t.p3_chara_voice_text +
-            t.p4_chara_voice_text +
-            t.p5_chara_voice_text;
-          if (!vo) continue;
+  for (const entry of state.zip.entries.filter((x) => x.filename?.includes('.json'))) {
+    const obj = await state.zip.readFileAsJsonAsync(entry.filename);
+    if (entry.filename.includes('source.json') && Array.isArray(obj)) {
+      for (const t of obj) {
+        const vo =
+          t.p1_chara_voice_text +
+          t.p2_chara_voice_text +
+          t.p3_chara_voice_text +
+          t.p4_chara_voice_text +
+          t.p5_chara_voice_text;
+        if (!vo) continue;
 
-          state.audioTextMap.set(`${v.name}/${vo}`.replace('source.json', 'voice'), t.text);
+        state.audioTextMap.set(`${entry.filename}/${vo}`.replace('source.json', 'voice'), t.text);
+      }
+    }
+
+    if (entry.filename.includes('meta.json')) {
+      if ('name' in obj) state.name = obj.name as string;
+      if ('msg' in obj) {
+        for (let i = 1; i <= 20; i++) {
+          const key = `m${i}`;
+          state.audioTextMap.set(msgMap.get(key) ?? '', (obj.msg as Record<string, string>)[key]);
         }
       }
 
-      if (v.name.includes('meta.json')) {
-        if ('name' in obj) state.name = obj.name;
-        if ('msg' in obj) {
-          for (let i = 1; i <= 20; i++) {
-            const key = `m${i}`;
-            state.audioTextMap.set(msgMap.get(key) ?? '', obj.msg[key]);
-          }
-        }
-
-        if ('voiceTextMap' in obj) {
-          for (const [k, v] of Object.entries(obj.voiceTextMap as { [index: string]: string })) {
-            state.audioTextMap.set(`${k}.m4a`, v);
-          }
+      if ('voiceTextMap' in obj) {
+        for (const [k, v] of Object.entries(obj.voiceTextMap as { [index: string]: string })) {
+          state.audioTextMap.set(`${k}.m4a`, v);
         }
       }
     }
@@ -107,16 +107,16 @@ const readAllFiles = async (file: File) => {
 };
 
 const selectImage = async () => {
-  const t = state.jszip.file(state.image.selected);
+  const t = await state.zip.readFileAsBlobAsync(state.image.selected);
   if (!t) return;
   const e = document.getElementById('image-sample') as HTMLImageElement;
   if (!e) return;
-  e.src = toUrl(await t.async('blob'));
+  e.src = toUrl(t);
 };
 const addMovie = async (name: string) =>
   state.movie.stack.push({
     name,
-    blob: (await state.jszip.file(name)?.async('blob')) ?? new Blob(),
+    blob: (await state.zip.readFileAsBlobAsync(name)) ?? new Blob(),
   });
 const addAllMovie = async () => {
   state.movie.stack.splice(0);
@@ -139,7 +139,7 @@ const toggleMovieExpand = (name: string) => {
 
 // 読み込みまわり
 const clear = () => {
-  state.jszip = new JSZip();
+  state.zip.entries.splice(0);
   state.story.elements.splice(0);
   state.image.selected = '';
   state.movie.stack.splice(0);
@@ -208,11 +208,11 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
       </v-col>
     </v-row>
     <v-row dense>
-      <SkeletonViewCols :jszip="state.jszip" :file-names="fileNames" />
+      <SkeletonViewCols :zip="state.zip" :file-names="fileNames" />
     </v-row>
     <v-row dense>
       <AudioListCols
-        :jszip="state.jszip"
+        :zip="state.zip"
         :chara-name="state.name"
         :file-names="fileNames"
         :volume="state.volume"
@@ -332,7 +332,7 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
     <!-- ストーリー -->
     <v-row dense v-show="fileNames.some((x) => x.includes('source.json'))">
       <v-col cols="6">
-        <StoryElements :jszip="state.jszip" :file-names="fileNames" :volume="state.volume" />
+        <StoryElements :zip="state.zip" :file-names="fileNames" :volume="state.volume" />
       </v-col>
     </v-row>
   </v-container>

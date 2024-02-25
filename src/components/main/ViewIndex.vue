@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
-import JSZip from 'jszip';
+import { ZipDir } from '@/scripts/zip';
 import type { Character } from '@/@types';
 import { downloadCharacter } from '@/repository/downloadCharacter';
 import { downloadStory, fillStoryData } from '@/repository/downloadStory';
@@ -85,33 +85,29 @@ const items = computed(() => {
 });
 
 const download = async (character: Character) => {
+  const tasks = new Array<Promise<unknown>>();
   state.loadStatusMessage = '開始中…';
   state.workingCharaId = character.chara_id;
 
-  const zip = new JSZip();
-  const charaDir = zip.folder(character.name);
-  if (!charaDir) {
-    state.loadStatusMessage = '【例外】なんかディレクトリ作るの失敗した。';
-    throw '【例外】なんかディレクトリ作るの失敗した。';
-  }
-
+  const zip = new ZipDir(character.name);
   // 基本
   state.loadStatusMessage = '基本情報のダウンロード中…';
-  await downloadCharacter(charaDir, character, document.createElement('canvas'));
+  tasks.push(downloadCharacter(zip, character, document.createElement('canvas')));
 
   // スケルトン
   {
-    const skeletonDir = charaDir.folder('skeleton');
+    const skeletonDir = zip.folder('skeleton');
     const types = ['spine_n', 'spine_w'];
     const extensions = ['.atlas', '.json', '.png'];
     for (const t of types) {
-      const d = skeletonDir?.folder(t);
+      const d = skeletonDir.folder(t);
       for (const e of extensions) {
-        const r = await fetch(
-          `https://ancl.jp/img/game/chara/${character.chara_id}/${t}/skeleton${e}`,
+        tasks.push(
+          d.fileFromUrlAsync(
+            `skeleton${e}`,
+            `https://ancl.jp/img/game/chara/${character.chara_id}/${t}/skeleton${e}`,
+          ),
         );
-        if (!r.ok) continue;
-        d?.file(`skeleton${e}`, r.blob());
       }
     }
   }
@@ -127,7 +123,7 @@ const download = async (character: Character) => {
   const filledStories = await fillStoryData(stories, enableStidMap.value);
   const stidLoggingTasks = new Array<Promise<Response>>();
   for await (const s of filledStories) {
-    await downloadStory(charaDir, s, character);
+    await downloadStory(zip, s, character);
     if (!s.storyId) continue;
     stidLoggingTasks.push(
       fetch(
@@ -142,9 +138,10 @@ const download = async (character: Character) => {
     );
   }
 
+  await Promise.all(tasks);
   // zipアーカイブ
   state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
-  const blob = await zip.generateAsync({ type: 'blob' });
+  const blob = await zip.end();
 
   state.loadStatusMessage = 'リンク生成中…';
   const a = document.createElement('a');

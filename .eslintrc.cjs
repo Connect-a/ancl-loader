@@ -14,8 +14,9 @@ module.exports = {
   },
   ignorePatterns: ['**/spine-ts/*.*'],
   rules: {
-    'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    'no-unused-vars': "off",
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-    'curly': ["error", "multi-line"]
+    'curly': ["error", "multi-line"],
+    'no-constant-condition': ["error", { "checkLoops": false }]
   },
 };
