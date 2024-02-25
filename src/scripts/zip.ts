@@ -73,8 +73,10 @@ export class ZipDir {
   fileFromUrlAsync = async (filename: string, url: string) => {
     try {
       return await this.#zip.add(`${this.#dir}/${filename}`, new HttpReader(url));
-    } catch (e) {
-      console.log(e.message);
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        console.log(e.message);
+      }
     }
     return Promise.resolve();
   };
