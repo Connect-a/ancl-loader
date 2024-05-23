@@ -8,8 +8,8 @@ import { crx, defineManifest } from '@crxjs/vite-plugin';
 const manifest = defineManifest({
   name: 'エンクリローダー',
   description: 'エンジェリックリンクの非公式リソースローダー',
-  version: '2.0.0',
-  version_name: '2.0.0 alpha',
+  version: '2.1.0',
+  version_name: '2.1.0',
   manifest_version: 3,
   permissions: [
     'nativeMessaging',
@@ -57,6 +57,9 @@ const manifest = defineManifest({
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  build: {
+    target: 'esnext'
+  },
   plugins: [vue(), vuetify({ autoImport: true }), crx({ manifest })],
   resolve: {
     alias: {
