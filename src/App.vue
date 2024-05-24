@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router';
-import { runtime, storage } from 'webextension-polyfill';
+import { storage } from 'webextension-polyfill';
 import MainHeader from './components/MainHeader.vue';
 import { useMainStore } from './store';
 import { useAdditionalDataStore } from './store/additionalDataStore';
@@ -19,7 +19,6 @@ storage.local.onChanged.addListener((changes) => {
     mainStore.$patch({ [key]: changes[key].newValue });
   }
   if (mainStore.loaded) {
-    runtime.sendMessage('completeRestore');
     mainStore.isAwaitGameData = false;
   }
 });

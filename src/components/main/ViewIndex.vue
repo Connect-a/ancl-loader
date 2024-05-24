@@ -20,6 +20,7 @@ const state = reactive({
   page: 1,
   search: '',
   filterNotDownloadedYet: false,
+  filterAcquiredCharacter: false,
   charaImportUrl: localStorage.getItem('charaImportUrl') ?? '',
   loadStatusMessage: '',
   workingCharaId: '',
@@ -73,7 +74,9 @@ const items = computed(() => {
   const s = state.search.replace(/[\u3041-\u3096]/g, (m) =>
     String.fromCharCode(m.charCodeAt(0) + 0x60),
   );
+  const caharaIdSet = new Set(Object.keys(mainStore.initData?.result.player_data.chara ?? {}));
   return Object.values(mainStore.characters?.chara_data ?? {})
+    .map((x) => ({ ...x, acquired: caharaIdSet.has(x.chara_id) }))
     .filter((x) => x.name.includes(s) || x.kana.includes(s))
     .filter((x) => x.chara_id !== '000000')
     .filter((x) =>
@@ -81,6 +84,7 @@ const items = computed(() => {
         ? !downloadHistoryStore.downloadHistory.find((h) => h?.id === x.chara_id)
         : true,
     )
+    .filter((x) => (state.filterAcquiredCharacter ? x.acquired : true))
     .sort((a, b) => a.order - b.order);
 });
 
@@ -193,9 +197,16 @@ const download = async (character: Character) => {
       </v-col>
       <v-col cols="auto">
         <v-checkbox
-          dense
+          density="compact"
+          hide-details
           label="未ダウンロードのみ表示"
           v-model="state.filterNotDownloadedYet"
+        ></v-checkbox>
+        <v-checkbox
+          density="compact"
+          hide-details
+          label="所持済みのみ表示"
+          v-model="state.filterAcquiredCharacter"
         ></v-checkbox>
       </v-col>
     </v-row>
@@ -219,7 +230,7 @@ const download = async (character: Character) => {
                 <v-avatar size="100" rounded="sm">
                   <v-img
                     :src="`https://ancl.jp/img/game/chara/${item.raw.chara_id}/graphic/${item.raw.chara_id}_ss.png`"
-                    :alt="`${item.raw.title}`"
+                    :alt="`${item.raw.name}`"
                   />
                 </v-avatar>
               </template>
@@ -240,6 +251,13 @@ const download = async (character: Character) => {
                 <v-container>
                   <v-row dense no-gutters>
                     <v-col>
+                      <p>
+                        {{ item.raw.acquired ? '' : '(未所持)' }}
+                      </p>
+                    </v-col>
+                  </v-row>
+                  <v-row dense no-gutters>
+                    <v-col>
                       <v-btn
                         @click="download(item.raw)"
                         color="primary"
@@ -254,7 +272,7 @@ const download = async (character: Character) => {
                   </v-row>
                   <v-row dense no-gutters>
                     <v-col>
-                      <p class="blue">
+                      <p>
                         {{
                           downloadHistoryStore.downloadHistory.find(
                             (x) => x?.id === item.raw.chara_id,
@@ -274,46 +292,6 @@ const download = async (character: Character) => {
             <v-pagination v-model="state.page" :length="pageCount"></v-pagination>
           </template>
         </v-data-iterator>
-
-        <!-- <v-list v-if="mainStore.loaded" item-props>
-          <v-list-item v-for="item in items" :key="item.chara_id" :title="item.title">
-            <template v-slot:prepend>
-              <v-avatar size="100" rounded="sm">
-                <v-img :src="`https://ancl.jp/img/game/chara/${item.chara_id}/graphic/${item.chara_id}_ss.png`"
-                  :alt="`${item.title}`" />
-              </v-avatar>
-            </template>
-            <v-list-item-subtitle>
-              <ul>
-                <li v-for="story of mainStore.stories?.chara?.story[item.chara_id]" :key="story.st_id" :style="[
-                  enableStidMap.has(story.st_id)
-                    ? ''
-                    : { 'text-decoration': 'line-through' },
-                ]">
-                  {{ story.st_id }} : {{ story.name }}
-                </li>
-              </ul>
-            </v-list-item-subtitle>
-            <template v-slot:append>
-              <v-container>
-                <v-row dense no-gutters>
-                  <v-col>
-                    <v-btn @click="download(item)" color="primary" :disabled="state.loadStatusMessage !== ''">{{
-                      state.workingCharaId === item.chara_id ? state.loadStatusMessage : 'ダウンロード'
-                    }}</v-btn>
-                  </v-col>
-                </v-row>
-                <v-row dense no-gutters>
-                  <v-col>
-                    <p class="blue">
-                      {{ downloadHistoryStore.downloadHistory.find((x) => x?.id === item.chara_id)?.date ?? '-' }}
-                    </p>
-                  </v-col>
-                </v-row>
-              </v-container>
-            </template>
-          </v-list-item>
-        </v-list> -->
       </v-col>
     </v-row>
   </v-container>
