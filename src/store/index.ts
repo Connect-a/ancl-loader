@@ -10,6 +10,7 @@ import type {
   SpecificVoice,
   Voice,
 } from '@/@types';
+import { anclDataFieldNames } from '@/scripts/anclDataFieldNames';
 
 export const useMainStore = defineStore('main', {
   state: () => ({
@@ -26,26 +27,13 @@ export const useMainStore = defineStore('main', {
   }),
   getters: {
     loaded: (state) =>
-      !!state.token &&
-      !!state.initData &&
-      !!state.specificVoice &&
-      !!state.characters &&
-      !!state.enemy &&
-      !!state.battleEvent &&
-      !!state.radio &&
-      !!state.voice,
+      anclDataFieldNames.every((x) => !!((state as Record<string, any>)[x] as any)),
   },
   actions: {
     async init() {
-      this.token = (await storage.local.get('token')).token;
-      this.initData = (await storage.local.get('initData')).initData;
-      this.specificVoice = (await storage.local.get('specificVoice')).specificVoice;
-      this.characters = (await storage.local.get('characters')).characters;
-      this.stories = (await storage.local.get('stories')).stories;
-      this.enemy = (await storage.local.get('enemy')).enemy;
-      this.battleEvent = (await storage.local.get('battleEvent')).battleEvent;
-      this.radio = (await storage.local.get('radio')).radio;
-      this.voice = (await storage.local.get('voice')).voice;
+      for (const x of anclDataFieldNames) {
+        (this as Record<string, any>)[x] = (await storage.local.get(x))[x];
+      }
     },
     async clear() {
       this.token = '';
@@ -57,17 +45,7 @@ export const useMainStore = defineStore('main', {
       this.battleEvent = undefined;
       this.radio = undefined;
       this.voice = undefined;
-      await storage.local.remove([
-        'token',
-        'initData',
-        'specificVoice',
-        'characters',
-        'stories',
-        'enemy',
-        'battleEvent',
-        'radio',
-        'voice',
-      ]);
+      await storage.local.remove(anclDataFieldNames);
     },
     async awaitRestore() {
       this.isAwaitGameData = true;
