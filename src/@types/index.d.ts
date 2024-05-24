@@ -28,7 +28,6 @@ export type AllStories = {
 // キャラクター
 export type Character = {
   chara_id: string;
-  title:string;
   name: string;
   kana: string;
   msg: { [index: string]: string };
