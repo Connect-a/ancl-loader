@@ -18,11 +18,11 @@ const additionalDataStore = useAdditionalDataStore();
 
 const state = reactive({
   page: 1,
-  search: '',
+  keyword: '',
   filterNotDownloadedYet: false,
   filterAcquiredCharacter: false,
   charaImportUrl: localStorage.getItem('charaImportUrl') ?? '',
-  loadStatusMessage: '',
+  loadingStatusMessage: '',
   workingCharaId: '',
 });
 
@@ -67,11 +67,11 @@ const loadAdditionalChara = async () => {
     }),
   );
 
-  state.search = '';
+  state.keyword = '';
 };
 
 const items = computed(() => {
-  const s = state.search.replace(/[\u3041-\u3096]/g, (m) =>
+  const s = state.keyword.replace(/[\u3041-\u3096]/g, (m) =>
     String.fromCharCode(m.charCodeAt(0) + 0x60),
   );
   const caharaIdSet = new Set(Object.keys(mainStore.initData?.result.player_data.chara ?? {}));
@@ -90,12 +90,12 @@ const items = computed(() => {
 
 const download = async (character: Character) => {
   const tasks = new Array<Promise<unknown>>();
-  state.loadStatusMessage = '開始中…';
+  state.loadingStatusMessage = '開始中…';
   state.workingCharaId = character.chara_id;
 
   const zip = new ZipDir(character.name);
   // 基本
-  state.loadStatusMessage = '基本情報のダウンロード中…';
+  state.loadingStatusMessage = '基本情報のダウンロード中…';
   tasks.push(downloadCharacter(zip, character, document.createElement('canvas')));
 
   // スケルトン
@@ -117,10 +117,10 @@ const download = async (character: Character) => {
   }
 
   // ストーリー
-  state.loadStatusMessage = 'ストーリーデータのダウンロード中…';
+  state.loadingStatusMessage = 'ストーリーデータのダウンロード中…';
   const stories = mainStore.stories?.chara.story[character.chara_id];
   if (!stories) {
-    state.loadStatusMessage = '【例外】ストーリーの取得失敗した。';
+    state.loadingStatusMessage = '【例外】ストーリーの取得失敗した。';
     throw '【例外】ストーリーの取得失敗した。';
   }
 
@@ -144,10 +144,10 @@ const download = async (character: Character) => {
 
   await Promise.all(tasks);
   // zipアーカイブ
-  state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
+  state.loadingStatusMessage = 'アーカイブなう…（時間かかるよ）';
   const blob = await zip.end();
 
-  state.loadStatusMessage = 'リンク生成中…';
+  state.loadingStatusMessage = 'リンク生成中…';
   const a = document.createElement('a');
   a.download = `エンクリ_${character.name}.zip`;
   a.href = URL.createObjectURL(blob);
@@ -156,7 +156,7 @@ const download = async (character: Character) => {
   await Promise.all(stidLoggingTasks);
   downloadHistoryStore.pushDownloadHistory(character.chara_id);
 
-  state.loadStatusMessage = '';
+  state.loadingStatusMessage = '';
   state.workingCharaId = '';
 };
 </script>
@@ -189,8 +189,15 @@ const download = async (character: Character) => {
       v-if="mainStore.characters?.chara_data && mainStore.stories?.chara?.story"
     >
       <v-col>
-        <v-text-field v-model="state.search" label="キャラ名検索" outlined dense class="ma-3" />
-        <template v-if="state.search === 'opensesame'">
+        <v-text-field
+          v-model="state.keyword"
+          @input="state.page = 1"
+          label="キャラ名検索"
+          outlined
+          dense
+          class="my-3"
+        />
+        <template v-if="state.keyword === 'opensesame'">
           <v-text-field label="URL" v-model="state.charaImportUrl" />
           <v-btn @click="loadAdditionalChara">ロード</v-btn>
         </template>
@@ -212,7 +219,7 @@ const download = async (character: Character) => {
     </v-row>
 
     <!-- リスト -->
-    <v-row dense>
+    <v-row dense v-if="mainStore.characters?.chara_data && mainStore.initData?.result">
       <v-col>
         <v-data-iterator
           v-if="mainStore.loaded"
@@ -261,10 +268,10 @@ const download = async (character: Character) => {
                       <v-btn
                         @click="download(item.raw)"
                         color="primary"
-                        :disabled="state.loadStatusMessage !== ''"
+                        :disabled="state.loadingStatusMessage !== ''"
                         >{{
                           state.workingCharaId === item.raw.chara_id
-                            ? state.loadStatusMessage
+                            ? state.loadingStatusMessage
                             : 'ダウンロード'
                         }}</v-btn
                       >
