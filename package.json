@@ -1,6 +1,6 @@
 {
   "name": "ancl-loader",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,12 +15,12 @@
   "dependencies": {
     "@mdi/js": "^7.4.47",
     "@msgpack/msgpack": "^3.0.0-beta2",
-    "@zip.js/zip.js": "^2.7.44",
+    "@zip.js/zip.js": "^2.7.45",
     "dayjs": "^1.11.11",
     "pinia": "^2.1.7",
-    "vue": "^3.4.27",
-    "vue-router": "^4.3.2",
-    "vuetify": "^3.6.7",
+    "vue": "^3.4.29",
+    "vue-router": "^4.3.3",
+    "vuetify": "^3.6.9",
     "webextension-polyfill": "^0.12.0"
   },
   "devDependencies": {
@@ -28,19 +28,19 @@
     "@rushstack/eslint-patch": "^1.10.3",
     "@tsconfig/node20": "^20.1.4",
     "@types/chrome": "^0.0.268",
-    "@types/node": "^20.12.12",
+    "@types/node": "^20.14.2",
     "@types/webextension-polyfill": "^0.10.7",
-    "@vitejs/plugin-vue": "^5.0.4",
+    "@vitejs/plugin-vue": "^5.0.5",
     "@vue/eslint-config-prettier": "^9.0.0",
     "@vue/eslint-config-typescript": "^13.0.0",
     "@vue/tsconfig": "^0.5.1",
     "eslint": "^8.57.0",
     "eslint-plugin-vue": "^9.26.0",
     "npm-run-all2": "^6.2.0",
-    "prettier": "^3.2.5",
+    "prettier": "^3.3.2",
     "typescript": "^5.4.5",
-    "vite": "^5.2.11",
+    "vite": "^5.3.1",
     "vite-plugin-vuetify": "^2.0.3",
-    "vue-tsc": "^2.0.19"
+    "vue-tsc": "^2.0.21"
   }
 }
