@@ -63,7 +63,9 @@ const download = async (section: AsmrSection) => {
       if (!chapterId) continue;
       chapterIdLoggingTasks.push(
         fetch(
-          `https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=voice_${section.section_id}_${chapter.ch_id}_${chapterId}?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`,
+          `https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=${encodeURIComponent(
+            `voice_${section.section_id}_${chapter.ch_id}_${chapterId}`,
+          )}?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`,
           {
             method: 'GET',
             mode: 'no-cors',

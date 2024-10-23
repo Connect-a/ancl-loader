@@ -131,7 +131,9 @@ const download = async (character: Character) => {
     if (!s.storyId) continue;
     stidLoggingTasks.push(
       fetch(
-        `https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=${character.chara_id}_${character.name}_${s.st_id}_${s.storyId}?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`,
+        `https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=${encodeURIComponent(
+          `${character.chara_id}_${character.name}_${s.st_id}_${s.storyId}`,
+        )}?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`,
         {
           method: 'GET',
           mode: 'no-cors',

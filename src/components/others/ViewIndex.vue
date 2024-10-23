@@ -147,9 +147,9 @@ const downloadRadio = async () => {
       );
       radioLoggingTasks.push(
         fetch(
-          `https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=radio_${name}_${
-            query.split('=')[1]
-          }?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`,
+          `https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=${encodeURIComponent(
+            `radio_${name}_${query.split('=')[1]}`,
+          )}?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`,
           {
             method: 'GET',
             mode: 'no-cors',
