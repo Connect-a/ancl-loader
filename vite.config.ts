@@ -5,11 +5,12 @@ import vue from '@vitejs/plugin-vue';
 import vuetify from 'vite-plugin-vuetify';
 import { crx, defineManifest } from '@crxjs/vite-plugin';
 
+const version = process.env.npm_package_version;
 const manifest = defineManifest({
-  name: 'エンクリローダー',
+  name: `エンクリローダー ${version}`,
   description: 'エンジェリックリンクの非公式リソースローダー',
-  version: '2.2.1',
-  version_name: '2.2.1',
+  version: version ?? '0.0.0',
+  version_name: version,
   manifest_version: 3,
   permissions: [
     'nativeMessaging',
@@ -36,10 +37,6 @@ const manifest = defineManifest({
       all_frames: true,
     },
   ],
-  background: {
-    service_worker: 'src/background/background.ts',
-    type: 'module',
-  },
   action: {
     default_icon: 'icon.png',
     default_popup: 'index.html',
@@ -58,16 +55,16 @@ const manifest = defineManifest({
 // https://vitejs.dev/config/
 export default defineConfig({
   build: {
-    target: 'esnext'
+    target: 'esnext',
   },
   plugins: [vue(), vuetify({ autoImport: true }), crx({ manifest })],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
-    }
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
   },
   define: {
-    '__APP_VERSION__': JSON.stringify(process.env.npm_package_version),
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
   },
   server: {
     port: 5174,
@@ -77,4 +74,4 @@ export default defineConfig({
       clientPort: 5174,
     },
   },
-})
+});

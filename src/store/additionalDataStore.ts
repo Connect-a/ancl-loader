@@ -23,12 +23,15 @@ export const useAdditionalDataStore = defineStore('additionalDataStore', {
   },
   actions: {
     async init() {
-      this.additionalData = (await storage.local.get(key))?.additionalData ?? [];
+      this.additionalData = ((await storage.local.get(key))?.additionalData ??
+        []) as Array<AdditionalData>;
     },
     async setAdditionalData(stories: Array<AdditionalData>) {
       await storage.local.set({ additionalData: stories });
       this.additionalData.splice(0);
-      this.additionalData.push(...((await storage.local.get(key))?.additionalData ?? []));
+      this.additionalData.push(
+        ...(((await storage.local.get(key))?.additionalData ?? []) as Array<AdditionalData>),
+      );
     },
   },
 });

@@ -5,6 +5,7 @@ import MainHeader from './components/MainHeader.vue';
 import { useMainStore } from './store';
 import { useAdditionalDataStore } from './store/additionalDataStore';
 import { mdiCancel, mdiCheck } from '@mdi/js';
+import { onBeforeUnmount } from 'vue';
 const route = useRoute();
 const mainStore = useMainStore();
 const additionalDataStore = useAdditionalDataStore();
@@ -22,6 +23,8 @@ storage.local.onChanged.addListener((changes) => {
     mainStore.isAwaitGameData = false;
   }
 });
+
+onBeforeUnmount(mainStore.cancelRestore);
 </script>
 
 <template>
@@ -138,10 +141,12 @@ ul {
   background-color: snow !important;
   color: dimgray !important;
 }
+
 .v-theme--light select {
   background-color: dimgray !important;
   color: snow !important;
 }
+
 select {
   width: 100% !important;
   appearance: auto !important;

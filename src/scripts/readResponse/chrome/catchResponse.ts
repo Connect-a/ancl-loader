@@ -71,15 +71,10 @@ const handleNetworkLoadingFinished = async (
     // console.log(url, decodedResponse);
 
     if (url.includes(url_character)) await storage.local.set({ characters: decodedResponse });
-
     if (url.includes(url_story)) await storage.local.set({ stories: decodedResponse });
-
     if (url.includes(url_enemy)) await storage.local.set({ enemy: decodedResponse });
-
     if (url.includes(url_battleEvent)) await storage.local.set({ battleEvent: decodedResponse });
-
     if (url.includes(url_radio)) await storage.local.set({ radio: decodedResponse });
-
     if (url.includes(url_voice)) await storage.local.set({ voice: decodedResponse });
 
     //
@@ -191,7 +186,6 @@ export const setUpChrome = async () => {
 
 export const detachAll = async () => {
   console.log('detachAll');
-
   const targets = await chrome.debugger.getTargets();
   for (const t of targets.filter((x) => x.attached)) {
     try {
@@ -203,4 +197,5 @@ export const detachAll = async () => {
 
   chrome.debugger.onEvent.removeListener(handleDebuggerEvent);
   webNavigation.onCommitted.removeListener(handleWebNavigationOnCommitted);
+  await storage.local.set({ isAwaitGameData: false });
 };

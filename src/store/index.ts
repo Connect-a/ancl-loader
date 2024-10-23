@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
-import { runtime, storage } from 'webextension-polyfill';
+import { detachAll, setUpChrome } from '@/scripts/readResponse/chrome/catchResponse';
+import { storage } from 'webextension-polyfill';
 import type {
   AllStories,
   BattleEvent,
@@ -49,12 +50,13 @@ export const useMainStore = defineStore('main', {
     },
     async awaitRestore() {
       this.isAwaitGameData = true;
+      await storage.local.set({ isAwaitGameData: true });
       await this.clear();
-      await runtime.sendMessage('awaitGameData');
+      await setUpChrome();
     },
     async cancelRestore() {
       this.isAwaitGameData = false;
-      await runtime.sendMessage('cancelRestore');
+      await detachAll();
     },
   },
 });
