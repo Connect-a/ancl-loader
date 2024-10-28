@@ -10494,4 +10494,3 @@ var spine;
 	spine.SpinePlayerEditor = SpinePlayerEditor;
 })(spine || (spine = {}));
 export var spine = spine;
-//# sourceMappingURL=spine-player.js.map

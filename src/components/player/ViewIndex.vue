@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
-import { mdiVolumeHigh, mdiArrowExpand, mdiCheckerboard } from '@mdi/js';
+import {
+  mdiVolumeHigh,
+  mdiArrowExpand,
+  mdiCheckerboard,
+  mdiChevronLeft,
+  mdiChevronRight,
+} from '@mdi/js';
 import { Unzipper } from '@/scripts/zip';
 import type { StoryElement } from '@/@types';
 import VideoContainer, { type VideoMedia } from './components/VideoContainer.vue';
@@ -145,6 +151,8 @@ const clear = () => {
   state.movie.stack.splice(0);
   state.audioTextMap.clear();
   //
+  const fileInput = document.getElementById('zipInput') as HTMLInputElement;
+  fileInput.value = '';
   const player = document.getElementById('spine-player');
   while (player?.firstChild) player.firstChild.remove();
 };
@@ -201,7 +209,7 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
             <p v-show="!state.loadingNow" style="text-align: center">ここにzipをドロップ</p>
           </v-card-text>
           <v-card-actions>
-            <input type="file" @input="onInput" accept=".zip" />
+            <input type="file" @input="onInput" accept=".zip" id="zipInput" />
             <v-btn size="small" variant="outlined" @click="clear">読み込み結果のクリア</v-btn>
           </v-card-actions>
         </v-card>
@@ -222,7 +230,6 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
     <v-row dense>
       <v-col cols="3">
         <v-card
-          title="◆画像"
           v-show="imageFileNames?.length"
           color="blue darken-4"
           density="compact"
@@ -233,6 +240,14 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
           @keydown.right.prevent="selectNext('image-select')"
           class="focusable"
         >
+          <v-card-title class="d-flex flex-row">
+            <span>◆画像</span>
+            <v-spacer></v-spacer>
+            <v-btn-group variant="outlined" density="compact">
+              <v-btn :icon="mdiChevronLeft" @click="selectPrev('image-select')" title="前へ" />
+              <v-btn :icon="mdiChevronRight" @click="selectNext('image-select')" title="次へ" />
+            </v-btn-group>
+          </v-card-title>
           <v-card-text>
             <select v-model="state.image.selected" @change="selectImage" id="image-select">
               <option v-for="image in imageFileNames" :value="image" :key="image">

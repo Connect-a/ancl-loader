@@ -8,6 +8,9 @@ import {
   mdiOpacity,
   mdiThemeLightDark,
   mdiContentSave,
+  mdiChevronLeft,
+  mdiChevronRight,
+  mdiCog,
 } from '@mdi/js';
 import type { StoryElement } from '@/@types';
 import { selectNext, selectPrev } from '@/scripts/selectConrol';
@@ -37,6 +40,7 @@ const state = reactive({
   theme: 'dark' as CardTheme,
   float: false,
   dragPositionOffset: { x: 0, y: 0 },
+  showControl: false,
   style: {
     position: 'initial',
     opacity: '1',
@@ -199,6 +203,12 @@ const setResizeObserver = () => {
       />
       <span v-show="!state.float">◆ストーリー</span>
       <v-spacer></v-spacer>
+      <v-btn
+        :icon="mdiCog"
+        @click="state.showControl = !state.showControl"
+        density="compact"
+        title="設定"
+      />
       <v-btn :icon="mdiContentSave" @click="saveStyle" density="compact" title="スタイルの保存" />
       <v-btn :icon="mdiThemeLightDark" @click="cardControll.toggleTheme" density="compact" />
       <v-btn
@@ -214,6 +224,10 @@ const setResizeObserver = () => {
         v-show="state.float"
         density="compact"
       />
+      <v-btn-group variant="outlined" density="compact" v-show="state.target">
+        <v-btn :icon="mdiChevronLeft" @click="selectPrev('story-element-select')" title="前へ" />
+        <v-btn :icon="mdiChevronRight" @click="selectNext('story-element-select')" title="次へ" />
+      </v-btn-group>
     </v-card-title>
     <v-card-text style="line-height: initial">
       <div v-show="state.target" :style="{ fontSize: `${state.fontSize}em` }">
@@ -245,8 +259,7 @@ const setResizeObserver = () => {
           {{ element.text }}
         </option>
       </select>
-      <details>
-        <summary>CTRL</summary>
+      <section v-show="state.showControl">
         <audio id="story-audio" :volume="props.volume / 100" controls></audio>
         <v-slider
           v-model="state.fontSize"
@@ -266,7 +279,7 @@ const setResizeObserver = () => {
           step="0.01"
           hide-details
         />
-      </details>
+      </section>
     </v-card-text>
   </v-card>
 </template>

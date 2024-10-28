@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
-import { mdiPlus } from '@mdi/js';
+import { mdiChevronLeft, mdiChevronRight, mdiPlus } from '@mdi/js';
 import { type IUnzipper } from '@/scripts/zip';
 import AudioContainer from './AudioContainer.vue';
 import { selectNext, selectPrev } from '@/scripts/selectConrol';
@@ -121,7 +121,6 @@ const togglePlaySelectedAudio = () => {
 <template>
   <v-col cols="3">
     <v-card
-      title="◆音声"
       v-show="audioFileNames.length"
       color="blue darken-3"
       density="compact"
@@ -133,6 +132,17 @@ const togglePlaySelectedAudio = () => {
       @keydown.space.prevent="togglePlaySelectedAudio"
       class="focusable"
     >
+      <v-card-title class="d-flex flex-row"
+        ><span>◆音声</span>
+        <v-spacer></v-spacer>
+        <v-btn-group variant="outlined" density="compact">
+          <v-btn :icon="mdiChevronLeft" @click="selectPrev('audio-select')" title="前へ" />
+          <v-btn
+            :icon="mdiChevronRight"
+            @click="selectNext('audio-select')"
+            title="次へ"
+          /> </v-btn-group
+      ></v-card-title>
       <v-card-text>
         <select v-model="state.audio.selected" @change="selectAudio" id="audio-select">
           <option v-for="audio in audioFileNames" :value="audio" :key="audio">
