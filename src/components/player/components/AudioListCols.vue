@@ -76,39 +76,47 @@ const removeAudio = async (name: string) =>
     1,
   );
 
-const playAudioAsync = (audio: HTMLAudioElement, dataMap: DOMStringMap) =>
+const playAudioAsync = (audio: HTMLAudioElement) =>
   new Promise<Event | void>((resolve, reject) => {
-    audio.playbackRate = parseFloat(dataMap['playbackRate'] ?? '1');
-    audio.volume = (props.volume / 100) * parseFloat(dataMap['volume'] ?? '1');
+    audio.playbackRate = parseFloat(audio.dataset['playbackRate'] ?? '1');
+    audio.volume = (props.volume / 100) * parseFloat(audio.dataset['volume'] ?? '1');
     audio.onended = resolve;
     audio.onerror = reject;
     audio.ontimeupdate = (_ev) => {
-      const startTime = parseFloat(dataMap['loopStart'] ?? `${audio.duration}`);
+      const loopRange = audio.dataset['loopRange']?.split(',').map(parseFloat) ?? [
+        0,
+        audio.duration,
+      ];
+      const startTime = loopRange[0] ?? 0;
+      const endTime = loopRange[1] ?? audio.duration;
       if (audio.currentTime <= startTime) audio.currentTime = startTime;
 
-      if (audio.currentTime >= parseFloat(dataMap['loopEnd'] ?? `${audio.duration}`)) {
-        audio.pause();
-        resolve();
+      if (audio.currentTime >= endTime) {
+        if (audio.dataset['loop'] === 'true') {
+          audio.currentTime = startTime;
+        } else {
+          audio.pause();
+          audio.currentTime = startTime;
+          resolve();
+        }
       }
     };
     audio.play();
   });
 
 const playAudioList = async () => {
-  const audioList = state.audio.stack.map(async (x) => {
-    const audio = new Audio();
-    audio.src = toUrl((await props.zip.readFileAsBlobAsync(x.name)) ?? new Blob());
-
-    const v = document.getElementById(x.name);
-    return { dataMap: v?.dataset ?? new DOMStringMap(), audio };
-  });
-
-  for await (const i of audioList) await playAudioAsync(i.audio, i.dataMap);
+  state.audio.playing = true;
+  const audioList = state.audio.stack.map(
+    (x) => document.getElementById(x.name) as HTMLAudioElement,
+  );
+  for (const audio of audioList) await playAudioAsync(audio);
+  state.audio.playing = false;
 };
 
 const stopAudioList = () => {
-  const audio = document.getElementById('batch-playback') as HTMLAudioElement;
-  audio.src = '';
+  state.audio.stack.forEach((x) => {
+    (document.getElementById(x.name) as HTMLAudioElement)?.pause();
+  });
   state.audio.playing = false;
 };
 
@@ -162,10 +170,9 @@ const togglePlaySelectedAudio = () => {
           style="width: 100%"
           alt="メッセージ"
         />
-        <audio id="batch-playback" :volume="props.volume / 100" />
         <audio id="audio-sample" controls :volume="props.volume / 100" style="width: 100%" />
       </v-card-text>
-      <v-card-actions v-show="state.audio.selected">
+      <v-card-actions>
         <v-btn
           v-show="state.audio.stack.length > 0 && !state.audio.playing"
           size="small"
@@ -183,13 +190,18 @@ const togglePlaySelectedAudio = () => {
           >停止
         </v-btn>
         <v-spacer />
-        <v-btn size="x-small" :icon="mdiPlus" @click="addAudio" color="white" variant="outlined" />
+        <v-btn
+          size="x-small"
+          v-show="state.audio.selected"
+          :icon="mdiPlus"
+          @click="addAudio"
+          variant="outlined"
+        />
       </v-card-actions>
     </v-card>
   </v-col>
   <v-col cols="3" v-for="media in state.audio.stack" :key="media.name">
     <AudioContainer
-      :id="media.name"
       :volume="props.volume"
       :media="media"
       @clickCloseBtn="removeAudio(media.name)"
