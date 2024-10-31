@@ -32,7 +32,13 @@ onBeforeUnmount(mainStore.cancelRestore);
     <v-app>
       <MainHeader />
       <v-main style="min-width: 800px">
-        <v-container v-show="route.name?.toString() !== 'Player' && !mainStore.loaded">
+        <v-container
+          v-show="
+            route.name?.toString() !== 'Player' &&
+            route.name?.toString() !== 'News' &&
+            !mainStore.loaded
+          "
+        >
           <v-row>
             <v-col>
               <v-card v-if="!mainStore.loaded && !mainStore.isAwaitGameData">

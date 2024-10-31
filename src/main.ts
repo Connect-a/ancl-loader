@@ -6,6 +6,7 @@ import vuetify from '@/plugins/vuetify';
 import { runtime, storage } from 'webextension-polyfill';
 import { anclDataFieldNames } from '@/scripts/anclDataFieldNames';
 import { detachAll } from '@/scripts/readResponse/chrome/catchResponse';
+import { useMainStore } from './store';
 
 const pinia = createPinia();
 createApp(App).use(pinia).use(router).use(vuetify).mount('#app');
@@ -16,7 +17,8 @@ storage.local.onChanged.addListener(async (changes) => {
   // データが全て揃ったら待機を解除する
   const storageData = await storage.local.get(anclDataFieldNames);
   if (anclDataFieldNames.every((x) => storageData[x])) {
-    await detachAll();
+    const mainStore = useMainStore();
+    await mainStore.cancelRestore();
   }
 });
 

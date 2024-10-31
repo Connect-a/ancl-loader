@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { mdiGithub, mdiPlay, mdiOpenInNew, mdiRestart } from '@mdi/js';
+import { mdiGithub, mdiPlay, mdiOpenInNew, mdiRestart, mdiInformation } from '@mdi/js';
 import { runtime } from 'webextension-polyfill';
 import { useRoute } from 'vue-router';
 import { useMainStore } from '@/store';
@@ -14,6 +14,7 @@ const routeNameMap = new Map<string, string>([
   ['EventStory', 'イベントストーリー'],
   ['Asmr', 'ASMR'],
   ['Player', 'プレイヤー'],
+  ['News', 'お知らせ'],
   ['Others', 'そのた'],
 ]);
 </script>
@@ -50,6 +51,7 @@ const routeNameMap = new Map<string, string>([
     <template v-slot:append>
       <v-btn href="https://github.com/Connect-a/ancl-loader" target="_blank" :icon="mdiGithub" />
       <v-btn :to="{ name: 'Player' }" :icon="mdiPlay" color="blue" />
+      <v-btn :to="{ name: 'News' }" :icon="mdiInformation" color="blue" />
       <v-btn
         :href="`chrome-extension://${runtime.id}/index.html#${route.fullPath}`"
         target="_blank"
@@ -60,8 +62,8 @@ const routeNameMap = new Map<string, string>([
       <v-btn
         v-show="!mainStore.isAwaitGameData"
         @click="
-          () => {
-            mainStore.awaitRestore();
+          async () => {
+            await mainStore.awaitRestore();
             $router.push({ name: 'Home' });
           }
         "
@@ -80,7 +82,7 @@ const routeNameMap = new Map<string, string>([
   </v-app-bar>
 </template>
 
-<style scoped>
+<style>
 .v-toolbar-title__placeholder {
   overflow: initial !important;
 }
