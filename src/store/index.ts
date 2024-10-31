@@ -49,13 +49,14 @@ export const useMainStore = defineStore('main', {
       await storage.local.remove(anclDataFieldNames);
     },
     async awaitRestore() {
-      this.isAwaitGameData = true;
-      await storage.local.set({ isAwaitGameData: true });
       await this.clear();
+      await storage.local.set({ isAwaitGameData: true });
+      this.isAwaitGameData = true;
       await setUpChrome();
     },
     async cancelRestore() {
       this.isAwaitGameData = false;
+      await storage.local.set({ isAwaitGameData: false });
       await detachAll();
     },
   },

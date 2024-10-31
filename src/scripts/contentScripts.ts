@@ -1,4 +1,5 @@
 import { storage } from 'webextension-polyfill';
+console.log('ancl: load contentScripts');
 const e = new XMLSerializer().serializeToString(document.head);
 const token = (e.match(/"token":"(.+?)",/) ?? [])[1] ?? '';
 if (token) storage.local.set({ token });

@@ -185,7 +185,7 @@ export const setUpChrome = async () => {
 };
 
 export const detachAll = async () => {
-  console.log('detachAll');
+  console.log('ancl: detachAll');
   const targets = await chrome.debugger.getTargets();
   for (const t of targets.filter((x) => x.attached)) {
     try {
