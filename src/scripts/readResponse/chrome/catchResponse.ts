@@ -14,10 +14,7 @@ type ReqRespData = {
 const _requests = new Map<string, ReqRespData>();
 const _responses = new Map<string, ReqRespData>();
 
-const handleNetworkLoadingFinished = async (
-  source: chrome.debugger.Debuggee,
-  requestId: string,
-) => {
+const handleNetworkLoadingFinished = async (source: chrome.debugger.Debuggee, requestId: string) => {
   const req = _requests.get(requestId);
   if (!req) return;
   const resp = _responses.get(requestId);
@@ -25,8 +22,7 @@ const handleNetworkLoadingFinished = async (
   const url = resp.url;
 
   // NOTE: MessagePack or JSON or HTMLの通信について監視
-  const contentType: string =
-    resp.headers[HEADER_CONTENT_TYPE] || resp.headers[HEADER_CONTENT_TYPE.toLowerCase()];
+  const contentType: string = resp.headers[HEADER_CONTENT_TYPE] || resp.headers[HEADER_CONTENT_TYPE.toLowerCase()];
   const isMsgpack = contentType?.toLowerCase().startsWith(MSGPACK_TYPE);
   // const isJson = contentType?.toLowerCase().startsWith(JSON_TYPE);
   // const isHtml = contentType?.toLowerCase().startsWith(HTML_TYPE);
@@ -42,18 +38,7 @@ const handleNetworkLoadingFinished = async (
   const url_voice = '/game/res/voice';
   const url_breed_season = '/game/res/breed_season';
   // const url_breed_monster = '/game/res/breed_monster';
-  const targetUrl = [
-    url_v1,
-    url_indexJs,
-    url_character,
-    url_story,
-    url_enemy,
-    url_event,
-    url_battleEvent,
-    url_radio,
-    url_voice,
-    url_breed_season,
-  ];
+  const targetUrl = [url_v1, url_indexJs, url_character, url_story, url_enemy, url_event, url_battleEvent, url_radio, url_voice, url_breed_season];
 
   if (!targetUrl.find((x) => url.includes(x))) return;
 
@@ -65,9 +50,7 @@ const handleNetworkLoadingFinished = async (
   if (!('body' in response)) return;
 
   if (isMsgpack) {
-    const decodedResponse = decode(
-      Uint8Array.from((response.body as string).split('').map((c) => c.charCodeAt(0))),
-    );
+    const decodedResponse = decode(Uint8Array.from((response.body as string).split('').map((c) => c.charCodeAt(0))));
     // console.log(url, decodedResponse);
 
     if (url.includes(url_character)) await storage.local.set({ characters: decodedResponse });
@@ -102,11 +85,7 @@ const handleNetworkLoadingFinished = async (
   }
 };
 
-const handleDebuggerEvent = async (
-  source: chrome.debugger.Debuggee,
-  method: string,
-  params?: object,
-) => {
+const handleDebuggerEvent = async (source: chrome.debugger.Debuggee, method: string, params?: object) => {
   const param = params as {
     targetInfo: { targetId: string };
     request: ReqRespData;
@@ -175,10 +154,7 @@ export const setUpChrome = async () => {
 
   webNavigation.onCommitted.removeListener(handleWebNavigationOnCommitted);
   webNavigation.onCommitted.addListener(handleWebNavigationOnCommitted, {
-    url: [
-      { urlContains: 'play.games.dmm.co.jp/game/angelicr' },
-      { urlContains: 'play.games.dmm.com/game/angelic' },
-    ],
+    url: [{ urlContains: 'play.games.dmm.co.jp/game/angelicr' }, { urlContains: 'play.games.dmm.com/game/angelic' }],
   });
   chrome.debugger.onEvent.removeListener(handleDebuggerEvent);
   chrome.debugger.onEvent.addListener(handleDebuggerEvent);

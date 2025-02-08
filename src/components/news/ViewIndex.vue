@@ -11,21 +11,12 @@
     </v-row>
     <v-row>
       <v-col>
-        <iframe
-          id="bottom-contents"
-          src="https://support.angelic-link.jp/news/"
-          style="width: 1160px; height: 640px"
-        ></iframe>
+        <iframe id="bottom-contents" src="https://support.angelic-link.jp/news/" style="width: 1160px; height: 640px"></iframe>
       </v-col>
     </v-row>
     <v-row>
       <v-col>
-        <iframe
-          scrolling="no"
-          id="bottom-contents"
-          src="https://ancl.jp/html/main_bottom/"
-          style="width: 1160px; height: 640px"
-        ></iframe>
+        <iframe scrolling="no" id="bottom-contents" src="https://ancl.jp/html/main_bottom/" style="width: 1160px; height: 640px"></iframe>
       </v-col>
     </v-row>
   </v-container>

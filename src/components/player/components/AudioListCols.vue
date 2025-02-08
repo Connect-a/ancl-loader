@@ -40,12 +40,7 @@ watch(
   () => props.charaName,
   async () => {
     for (const [key, value] of messageImageMap) {
-      state.messageImageMap.set(
-        key,
-        toUrl(
-          (await props.zip.readFileAsBlobAsync(`${props.charaName}/image/${value}`)) ?? new Blob(),
-        ),
-      );
+      state.messageImageMap.set(key, toUrl((await props.zip.readFileAsBlobAsync(`${props.charaName}/image/${value}`)) ?? new Blob()));
     }
   },
 );
@@ -83,10 +78,7 @@ const playAudioAsync = (audio: HTMLAudioElement) =>
     audio.onended = resolve;
     audio.onerror = reject;
     audio.ontimeupdate = (_ev) => {
-      const loopRange = audio.dataset['loopRange']?.split(',').map(parseFloat) ?? [
-        0,
-        audio.duration,
-      ];
+      const loopRange = audio.dataset['loopRange']?.split(',').map(parseFloat) ?? [0, audio.duration];
       const startTime = loopRange[0] ?? 0;
       const endTime = loopRange[1] ?? audio.duration;
       if (audio.currentTime <= startTime) audio.currentTime = startTime;
@@ -106,9 +98,7 @@ const playAudioAsync = (audio: HTMLAudioElement) =>
 
 const playAudioList = async () => {
   state.audio.playing = true;
-  const audioList = state.audio.stack.map(
-    (x) => document.getElementById(x.name) as HTMLAudioElement,
-  );
+  const audioList = state.audio.stack.map((x) => document.getElementById(x.name) as HTMLAudioElement);
   for (const audio of audioList) await playAudioAsync(audio);
   state.audio.playing = false;
 };
@@ -145,11 +135,7 @@ const togglePlaySelectedAudio = () => {
         <v-spacer></v-spacer>
         <v-btn-group variant="outlined" density="compact">
           <v-btn :icon="mdiChevronLeft" @click="selectPrev('audio-select')" title="前へ" />
-          <v-btn
-            :icon="mdiChevronRight"
-            @click="selectNext('audio-select')"
-            title="次へ"
-          /> </v-btn-group
+          <v-btn :icon="mdiChevronRight" @click="selectNext('audio-select')" title="次へ" /> </v-btn-group
       ></v-card-title>
       <v-card-text>
         <select v-model="state.audio.selected" @change="selectAudio" id="audio-select">
@@ -158,11 +144,7 @@ const togglePlaySelectedAudio = () => {
           </option>
         </select>
         <p>
-          {{
-            props.audioTextMap.get(state.audio.selected) ??
-            props.audioTextMap.get(state.audio.selected.split('/').at(-1) ?? '') ??
-            ''
-          }}
+          {{ props.audioTextMap.get(state.audio.selected) ?? props.audioTextMap.get(state.audio.selected.split('/').at(-1) ?? '') ?? '' }}
         </p>
         <img
           v-if="state.messageImageMap.has(state.audio.selected.split('/').at(-1) ?? '')"
@@ -173,39 +155,19 @@ const togglePlaySelectedAudio = () => {
         <audio id="audio-sample" controls :volume="props.volume / 100" style="width: 100%" />
       </v-card-text>
       <v-card-actions>
-        <v-btn
-          v-show="state.audio.stack.length > 0 && !state.audio.playing"
-          size="small"
-          variant="outlined"
-          @click="playAudioList"
-          class="mx-2"
+        <v-btn v-show="state.audio.stack.length > 0 && !state.audio.playing" size="small" variant="outlined" @click="playAudioList" class="mx-2"
           >初めから再生
         </v-btn>
-        <v-btn
-          v-show="state.audio.stack.length > 0 && state.audio.playing"
-          size="small"
-          variant="outlined"
-          @click="stopAudioList"
-          class="mx-2"
+        <v-btn v-show="state.audio.stack.length > 0 && state.audio.playing" size="small" variant="outlined" @click="stopAudioList" class="mx-2"
           >停止
         </v-btn>
         <v-spacer />
-        <v-btn
-          size="x-small"
-          v-show="state.audio.selected"
-          :icon="mdiPlus"
-          @click="addAudio"
-          variant="outlined"
-        />
+        <v-btn size="x-small" v-show="state.audio.selected" :icon="mdiPlus" @click="addAudio" variant="outlined" />
       </v-card-actions>
     </v-card>
   </v-col>
   <v-col cols="3" v-for="media in state.audio.stack" :key="media.name">
-    <AudioContainer
-      :volume="props.volume"
-      :media="media"
-      @clickCloseBtn="removeAudio(media.name)"
-    />
+    <AudioContainer :volume="props.volume" :media="media" @clickCloseBtn="removeAudio(media.name)" />
   </v-col>
 </template>
 

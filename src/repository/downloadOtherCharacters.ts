@@ -39,9 +39,7 @@ for (let i = 1; i <= 41; i++) voiceList.push({ type: '-', id: `V9${String(i).pad
 export const downloadCharacter = async (dir: ZipDir, createCanvas: () => HTMLCanvasElement) => {
   const tasks = new Array<Promise<unknown>>();
   const characterList = characters as Array<OtherCharacter>;
-  const charactersFetchResponse = await fetch(
-    'https://raw.githubusercontent.com/Connect-a/ancl-loader/master/src/repository/characters.json',
-  );
+  const charactersFetchResponse = await fetch('https://raw.githubusercontent.com/Connect-a/ancl-loader/master/src/repository/characters.json');
   if (charactersFetchResponse.ok) {
     for (const c of (await charactersFetchResponse.json()) as Array<OtherCharacter>) {
       if (characterList.find((x) => x.id === c.id)) continue;
@@ -55,14 +53,7 @@ export const downloadCharacter = async (dir: ZipDir, createCanvas: () => HTMLCan
     const imageBase = `https://ancl.jp/img/game/chara/${c.id}/graphic/${c.id}_`;
     const imageDir = d.folder('image');
     if (c.hasStandingPicture) {
-      tasks.push(
-        loadCharaImage(
-          imageDir,
-          createCanvas(),
-          imageBase,
-          imageSuffixList.concat(sdImageSuffixList),
-        ),
-      );
+      tasks.push(loadCharaImage(imageDir, createCanvas(), imageBase, imageSuffixList.concat(sdImageSuffixList)));
     }
     if (!c.hasStandingPicture) {
       tasks.push(loadCharaImage(imageDir, createCanvas(), imageBase, sdImageSuffixList));
@@ -70,12 +61,7 @@ export const downloadCharacter = async (dir: ZipDir, createCanvas: () => HTMLCan
     //
     const voiceDir = d.folder('voice');
     for (const v of voiceList) {
-      tasks.push(
-        voiceDir.fileFromUrlAsync(
-          `${v.id}.m4a`,
-          `https://ancl.jp/img/game/chara/${c.id}/voice/${v.id}.m4a`,
-        ),
-      );
+      tasks.push(voiceDir.fileFromUrlAsync(`${v.id}.m4a`, `https://ancl.jp/img/game/chara/${c.id}/voice/${v.id}.m4a`));
     }
   }
 

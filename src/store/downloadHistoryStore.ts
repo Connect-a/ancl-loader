@@ -9,12 +9,8 @@ type SectionDownloadHistory = { id: string; date: string };
 
 export const useDownloadHistoryStore = defineStore('downloadHistoryStore', {
   state: () => ({
-    downloadHistory: JSON.parse(
-      localStorage.getItem(key_downloadHistory) ?? '[]',
-    ) as Array<DownloadHistory>,
-    sectionDownloadHistory: JSON.parse(
-      localStorage.getItem(key_sectionDownloadHistory) ?? '[]',
-    ) as Array<SectionDownloadHistory>,
+    downloadHistory: JSON.parse(localStorage.getItem(key_downloadHistory) ?? '[]') as Array<DownloadHistory>,
+    sectionDownloadHistory: JSON.parse(localStorage.getItem(key_sectionDownloadHistory) ?? '[]') as Array<SectionDownloadHistory>,
   }),
   getters: {},
   actions: {

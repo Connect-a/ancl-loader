@@ -20,13 +20,7 @@ const state = reactive({
 });
 
 const sectionEventIdMap = computed(
-  () =>
-    new Map(
-      Object.values(mainStore.battleEvent ?? {}).map((v) => [
-        Object.entries(v.dungeons)[0][1].story_section,
-        v.event_id,
-      ]),
-    ),
+  () => new Map(Object.values(mainStore.battleEvent ?? {}).map((v) => [Object.entries(v.dungeons)[0][1].story_section, v.event_id])),
 );
 
 const storyList = computed(() => ({
@@ -37,8 +31,8 @@ const sectionOpenedMap = computed(
   () =>
     new Map<string, string>(
       Object.entries({
-        ...(mainStore.initData?.result?.player_data.story.event ?? {}),
-        ...(mainStore.initData?.result?.player_data.story.limited ?? {}),
+        ...mainStore.initData?.result?.player_data.story.event,
+        ...mainStore.initData?.result?.player_data.story.limited,
       }),
     ),
 );
@@ -67,11 +61,7 @@ const items = computed(() => {
 
   return Object.values(target?.section ?? {})
     .sort((a, b) => a.section_id.localeCompare(b.section_id))
-    .filter((x) =>
-      state.filterNotDownloadedYet
-        ? !downloadHistoryStore.sectionDownloadHistory.find((h) => h.id === x.section_id)
-        : true,
-    )
+    .filter((x) => (state.filterNotDownloadedYet ? !downloadHistoryStore.sectionDownloadHistory.find((h) => h.id === x.section_id) : true))
     .map((x) => ({
       ...x,
       title: `${x.name} : ${x.section_id}`,
@@ -117,12 +107,7 @@ const download = async (section: Section) => {
   }
 
   tasks.push(downloadBg(zip, storyElements));
-  tasks.push(
-    zip.fileFromUrlAsync(
-      `${section.section_id}.jpg`,
-      `https://ancl.jp/img/game/event/section/${section.section_id}.jpg`,
-    ),
-  );
+  tasks.push(zip.fileFromUrlAsync(`${section.section_id}.jpg`, `https://ancl.jp/img/game/event/section/${section.section_id}.jpg`));
   // イベントロゴ、背景、BGM
   if (sectionEventIdMap.value.has(section.section_id)) {
     const eventId = sectionEventIdMap.value.get(section.section_id);
@@ -187,11 +172,7 @@ const download = async (section: Section) => {
     <!-- 検索 -->
     <v-row dense align="center">
       <v-col cols="auto">
-        <v-checkbox
-          dense
-          label="未ダウンロードのみ表示"
-          v-model="state.filterNotDownloadedYet"
-        ></v-checkbox>
+        <v-checkbox dense label="未ダウンロードのみ表示" v-model="state.filterNotDownloadedYet"></v-checkbox>
       </v-col>
     </v-row>
 
@@ -204,20 +185,14 @@ const download = async (section: Section) => {
         </v-tabs>
         <v-list :items="items ?? []" item-props>
           <template v-slot:prepend="{ item }">
-            <v-img
-              width="256"
-              class="mx-2"
-              :src="`https://ancl.jp/img/game/event/section/${item.section_id}.jpg`"
-            />
+            <v-img width="256" class="mx-2" :src="`https://ancl.jp/img/game/event/section/${item.section_id}.jpg`" />
           </template>
           <template v-slot:subtitle="{ item }">
             <ul>
               <li
                 v-for="story of storyList[item.section_id]"
                 :key="story.st_id"
-                :style="[
-                  enableStidMap.has(story.st_id) ? '' : { 'text-decoration': 'line-through' },
-                ]"
+                :style="[enableStidMap.has(story.st_id) ? '' : { 'text-decoration': 'line-through' }]"
               >
                 {{ story.st_id }} : {{ story.name }}
               </li>
@@ -227,26 +202,15 @@ const download = async (section: Section) => {
             <v-container>
               <v-row dense no-gutters>
                 <v-col>
-                  <v-btn
-                    @click="download(item)"
-                    color="success"
-                    :disabled="state.loadStatusMessage !== ''"
-                    >{{
-                      state.workingSectionId === item.section_id
-                        ? state.loadStatusMessage
-                        : 'ダウンロード'
-                    }}</v-btn
-                  >
+                  <v-btn @click="download(item)" color="success" :disabled="state.loadStatusMessage !== ''">{{
+                    state.workingSectionId === item.section_id ? state.loadStatusMessage : 'ダウンロード'
+                  }}</v-btn>
                 </v-col>
               </v-row>
               <v-row dense no-gutters>
                 <v-col>
                   <p class="blue">
-                    {{
-                      downloadHistoryStore.sectionDownloadHistory.find(
-                        (x) => x.id === item.section_id,
-                      )?.date ?? '-'
-                    }}
+                    {{ downloadHistoryStore.sectionDownloadHistory.find((x) => x.id === item.section_id)?.date ?? '-' }}
                   </p>
                 </v-col>
               </v-row>

@@ -34,18 +34,10 @@ const selectSpine = async () => {
 
   const targetFiles = props.fileNames.filter((x) => x.includes(state.skeleton.target));
 
-  const png = await props.zip.readFileAsData64UriAsync(
-    targetFiles.find((x) => x.includes('.png')) ?? '',
-    'image/png',
-  );
+  const png = await props.zip.readFileAsData64UriAsync(targetFiles.find((x) => x.includes('.png')) ?? '', 'image/png');
   if (!png) return;
-  const json = await props.zip.readFileAsData64UriAsync(
-    targetFiles.find((x) => x.includes('.json')) ?? '',
-    'application/json',
-  );
-  const atlas = (
-    await props.zip.readFileAsTextAsync(targetFiles.find((x) => x.includes('.atlas')) ?? '')
-  )?.replace('skeleton.png', png);
+  const json = await props.zip.readFileAsData64UriAsync(targetFiles.find((x) => x.includes('.json')) ?? '', 'application/json');
+  const atlas = (await props.zip.readFileAsTextAsync(targetFiles.find((x) => x.includes('.atlas')) ?? ''))?.replace('skeleton.png', png);
 
   const conf: Partial<spine.SpinePlayerConfig> = {
     jsonUrl: json,
@@ -73,13 +65,7 @@ const selectSpine = async () => {
       <v-card-title>◆SDアニメーション</v-card-title>
       <v-card-text>
         <select v-model="state.skeleton.target" @change="selectSpine" id="skel-select">
-          <option
-            v-for="skel in new Set(
-              skeletonNames.map((x) => `${x.split('/').at(-3)}/${x.split('/').at(-2)}`),
-            )"
-            :value="skel"
-            :key="skel"
-          >
+          <option v-for="skel in new Set(skeletonNames.map((x) => `${x.split('/').at(-3)}/${x.split('/').at(-2)}`))" :value="skel" :key="skel">
             {{ skel }}
           </option>
         </select>

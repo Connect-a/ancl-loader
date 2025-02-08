@@ -17,13 +17,11 @@ const state = reactive({
 const enableSectionIdSet = computed(
   () =>
     new Set(
-      (mainStore.initData?.result.player_data.voice ?? [])
-        .concat(additionalChapter.map((x) => x.section_id))
-        .concat(
-          Object.values(mainStore.voice?.all.section ?? {})
-            .filter((v) => v.pay.data.num === 0)
-            .map((v) => v.section_id),
-        ),
+      (mainStore.initData?.result.player_data.voice ?? []).concat(additionalChapter.map((x) => x.section_id)).concat(
+        Object.values(mainStore.voice?.all.section ?? {})
+          .filter((v) => v.pay.data.num === 0)
+          .map((v) => v.section_id),
+      ),
     ),
 );
 const additionalChapter = (additionalDataStore.voiceAdditionalData ?? []).map((x) => ({
@@ -43,12 +41,7 @@ const download = async (section: AsmrSection) => {
   // セクション
   state.loadStatusMessage = 'セクションのダウンロード中…';
   tasks.push(zip.fileAsync('section.json', JSON.stringify(section)));
-  tasks.push(
-    zip.fileFromUrlAsync(
-      `${section.img}.jpg`,
-      `https://ancl.jp/img/game/event/section/${section.img}.jpg`,
-    ),
-  );
+  tasks.push(zip.fileFromUrlAsync(`${section.img}.jpg`, `https://ancl.jp/img/game/event/section/${section.img}.jpg`));
 
   // チャプター
   const chapterIdLoggingTasks = new Array<Promise<Response>>();
@@ -57,9 +50,7 @@ const download = async (section: AsmrSection) => {
 
     const chapters = mainStore.voice?.all.chapter[section.section_id] ?? [];
     for (const chapter of chapters) {
-      const chapterId =
-        additionalChapter.find((x) => x.ch_id === chapter.ch_id)?.chapterId ??
-        (await fetchChapterId(chapter.ch_id));
+      const chapterId = additionalChapter.find((x) => x.ch_id === chapter.ch_id)?.chapterId ?? (await fetchChapterId(chapter.ch_id));
       if (!chapterId) continue;
       chapterIdLoggingTasks.push(
         fetch(
@@ -146,22 +137,11 @@ const items = computed(() =>
         <v-list v-if="mainStore.voice" :items="items" item-props>
           <template v-slot:prepend="{ item }">
             <div class="d-flex flex-column">
-              <v-img
-                width="256"
-                class="ma-2"
-                :src="`https://ancl.jp/img/game/event/section/${item.img}.jpg`"
-              />
+              <v-img width="256" class="ma-2" :src="`https://ancl.jp/img/game/event/section/${item.img}.jpg`" />
               <v-list-item-action center>
-                <v-btn
-                  @click="download(item)"
-                  color="success"
-                  :disabled="state.loadStatusMessage !== ''"
-                  >{{
-                    state.workingSectionId === item.section_id
-                      ? state.loadStatusMessage
-                      : 'ダウンロード'
-                  }}</v-btn
-                >
+                <v-btn @click="download(item)" color="success" :disabled="state.loadStatusMessage !== ''">{{
+                  state.workingSectionId === item.section_id ? state.loadStatusMessage : 'ダウンロード'
+                }}</v-btn>
               </v-list-item-action>
             </div>
           </template>
@@ -170,11 +150,7 @@ const items = computed(() =>
               <li
                 v-for="chapter of mainStore.voice?.all.chapter[item.section_id]"
                 :key="chapter.ch_id"
-                :style="[
-                  enableSectionIdSet.has(item.section_id)
-                    ? ''
-                    : { 'text-decoration': 'line-through' },
-                ]"
+                :style="[enableSectionIdSet.has(item.section_id) ? '' : { 'text-decoration': 'line-through' }]"
               >
                 {{ chapter.ch_id }} : {{ chapter.name }}
               </li>

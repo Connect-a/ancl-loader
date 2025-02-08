@@ -61,43 +61,13 @@ const downloadEnemies = async () => {
     const enemyDir = zip.folder(`${enemy.section_id}_${enemy.name}`);
     tasks.push(enemyDir?.fileAsync('meta.json', JSON.stringify(enemy)));
     const imageDir = enemyDir.folder('image');
-    tasks.push(
-      imageDir.fileFromUrlAsync(
-        'icon.png',
-        `https://ancl.jp/img/game/monster/${enemy.img}/graphic/${enemy.img}_icon.png`,
-      ),
-    );
-    tasks.push(
-      imageDir.fileFromUrlAsync(
-        'pc.png',
-        `https://ancl.jp/img/game/monster/${enemy.img}/graphic/${enemy.img}_pc.png`,
-      ),
-    );
-    tasks.push(
-      imageDir.fileFromUrlAsync(
-        'ok.png',
-        `https://ancl.jp/img/game/monster/${enemy.img}/graphic/${enemy.img}_ok.png`,
-      ),
-    );
+    tasks.push(imageDir.fileFromUrlAsync('icon.png', `https://ancl.jp/img/game/monster/${enemy.img}/graphic/${enemy.img}_icon.png`));
+    tasks.push(imageDir.fileFromUrlAsync('pc.png', `https://ancl.jp/img/game/monster/${enemy.img}/graphic/${enemy.img}_pc.png`));
+    tasks.push(imageDir.fileFromUrlAsync('ok.png', `https://ancl.jp/img/game/monster/${enemy.img}/graphic/${enemy.img}_ok.png`));
     const skeletonDir = enemyDir.folder('skeleton');
-    tasks.push(
-      skeletonDir.fileFromUrlAsync(
-        'skeleton.json',
-        `https://ancl.jp/img/game/monster/${enemy.img}/spine/skeleton.json`,
-      ),
-    );
-    tasks.push(
-      skeletonDir.fileFromUrlAsync(
-        'skeleton.png',
-        `https://ancl.jp/img/game/monster/${enemy.img}/spine/skeleton.png`,
-      ),
-    );
-    tasks.push(
-      skeletonDir.fileFromUrlAsync(
-        'skeleton.atlas',
-        `https://ancl.jp/img/game/monster/${enemy.img}/spine/skeleton.atlas`,
-      ),
-    );
+    tasks.push(skeletonDir.fileFromUrlAsync('skeleton.json', `https://ancl.jp/img/game/monster/${enemy.img}/spine/skeleton.json`));
+    tasks.push(skeletonDir.fileFromUrlAsync('skeleton.png', `https://ancl.jp/img/game/monster/${enemy.img}/spine/skeleton.png`));
+    tasks.push(skeletonDir.fileFromUrlAsync('skeleton.atlas', `https://ancl.jp/img/game/monster/${enemy.img}/spine/skeleton.atlas`));
   }
 
   await Promise.all(tasks);
@@ -128,28 +98,18 @@ const downloadRadio = async () => {
   }
 
   // 番組表取得
-  const getHashCode = (ee: object) =>
-    Array.from(ee ? JSON.stringify(ee) : '').reduce(
-      (e, t) => ((e << 5) - e + t.charCodeAt(0)) | 0,
-      0,
-    );
+  const getHashCode = (ee: object) => Array.from(ee ? JSON.stringify(ee) : '').reduce((e, t) => ((e << 5) - e + t.charCodeAt(0)) | 0, 0);
   const query = `?h=${new Date().getTime()}${getHashCode(mainStore.radio.radio_guide)}`;
-  tasks.push(
-    zip.fileFromUrlAsync('_番組表.jpg', `https://ancl.jp/img/game/asset/radio/list.jpg${query}`),
-  );
+  tasks.push(zip.fileFromUrlAsync('_番組表.jpg', `https://ancl.jp/img/game/asset/radio/list.jpg${query}`));
 
   const radioLoggingTasks = new Array<Promise<Response>>();
   for (const guide of Object.values(mainStore.radio.radio_guide)) {
     for (const x of guide.list) {
       const name = `${guide.start.replace(':', '')}_${guide.name}_${x}`;
-      tasks.push(
-        zip.fileFromUrlAsync(`${name}.m4a`, `https://ancl.jp/img/game/asset/radio/pg/${x}.m4a`),
-      );
+      tasks.push(zip.fileFromUrlAsync(`${name}.m4a`, `https://ancl.jp/img/game/asset/radio/pg/${x}.m4a`));
       radioLoggingTasks.push(
         fetch(
-          `https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=${encodeURIComponent(
-            `radio_${name}_${query.split('=')[1]}`,
-          )}?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`,
+          `https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=${encodeURIComponent(`radio_${name}_${query.split('=')[1]}`)}?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`,
           {
             method: 'GET',
             mode: 'no-cors',
@@ -195,10 +155,7 @@ const downloadRadio = async () => {
     <v-list-item title="ストーリーキャラ">
       <template v-slot:prepend>
         <v-avatar size="100" rounded="sm">
-          <v-img
-            src="https://ancl.jp/img/game/chara/N01JIW/graphic/N01JIW_ss.png"
-            alt="ストーリーキャラ"
-          />
+          <v-img src="https://ancl.jp/img/game/chara/N01JIW/graphic/N01JIW_ss.png" alt="ストーリーキャラ" />
         </v-avatar>
       </template>
       <v-list-item-subtitle>
@@ -207,32 +164,23 @@ const downloadRadio = async () => {
         </ul>
       </v-list-item-subtitle>
       <template v-slot:append>
-        <v-btn
-          @click="downloadCharacters"
-          color="success"
-          :disabled="state.loadStatusMessage !== ''"
-          >{{ state.workingId === 'characters' ? state.loadStatusMessage : 'ダウンロード' }}</v-btn
-        >
+        <v-btn @click="downloadCharacters" color="success" :disabled="state.loadStatusMessage !== ''">{{
+          state.workingId === 'characters' ? state.loadStatusMessage : 'ダウンロード'
+        }}</v-btn>
       </template>
     </v-list-item>
 
     <v-list-item title="エネミー">
       <template v-slot:prepend>
         <v-avatar size="100" rounded="sm">
-          <v-img
-            src="https://ancl.jp/img/game/monster/W001QZ/graphic/W001QZ_icon.png"
-            alt="エネミー"
-          />
+          <v-img src="https://ancl.jp/img/game/monster/W001QZ/graphic/W001QZ_icon.png" alt="エネミー" />
         </v-avatar>
       </template>
 
       <template v-slot:append>
-        <v-btn
-          @click="downloadEnemies"
-          color="success"
-          :disabled="state.loadStatusMessage !== ''"
-          >{{ state.workingId === 'enemies' ? state.loadStatusMessage : 'ダウンロード' }}</v-btn
-        >
+        <v-btn @click="downloadEnemies" color="success" :disabled="state.loadStatusMessage !== ''">{{
+          state.workingId === 'enemies' ? state.loadStatusMessage : 'ダウンロード'
+        }}</v-btn>
       </template>
     </v-list-item>
 
@@ -256,10 +204,7 @@ const downloadRadio = async () => {
     <v-list-item title="画像集">
       <template v-slot:prepend>
         <v-avatar size="100" rounded="sm">
-          <v-img
-            src="https://ancl.jp/img/game/chara/N01JIW/graphic/N01JIW_sd_23.png"
-            alt="画像集"
-          />
+          <v-img src="https://ancl.jp/img/game/chara/N01JIW/graphic/N01JIW_sd_23.png" alt="画像集" />
         </v-avatar>
       </template>
       <v-list-item-subtitle>
