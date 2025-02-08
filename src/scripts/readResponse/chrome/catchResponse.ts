@@ -113,7 +113,7 @@ const handleDebuggerEvent = async (
     requestId: string;
     response: ReqRespData;
   };
-  switch (method) {
+    switch (method) {
     case 'Target.attachedToTarget':
       {
         const deb = { targetId: param?.targetInfo.targetId };
@@ -176,8 +176,8 @@ export const setUpChrome = async () => {
   webNavigation.onCommitted.removeListener(handleWebNavigationOnCommitted);
   webNavigation.onCommitted.addListener(handleWebNavigationOnCommitted, {
     url: [
-      { urlContains: 'pc-play.games.dmm.co.jp/play/angelicr' },
-      { urlContains: 'pc-play.games.dmm.com/play/angelic' },
+      { urlContains: 'play.games.dmm.co.jp/game/angelicr' },
+      { urlContains: 'play.games.dmm.com/game/angelic' },
     ],
   });
   chrome.debugger.onEvent.removeListener(handleDebuggerEvent);

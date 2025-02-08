@@ -21,8 +21,8 @@ const manifest = defineManifest({
     'unlimitedStorage',
   ],
   host_permissions: [
-    '*://pc-play.games.dmm.co.jp/play/angelicr/*',
-    '*://pc-play.games.dmm.com/play/angelic/*',
+    '*://play.games.dmm.co.jp/game/angelicr/*',
+    '*://play.games.dmm.com/game/angelic/*',
     '*://raw.githubusercontent.com/Connect-a/ancl-loader/*',
     '*://ancl-receiver.azurewebsites.net/*',
   ],

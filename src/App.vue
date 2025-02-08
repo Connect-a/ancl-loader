@@ -51,7 +51,7 @@ onBeforeUnmount(mainStore.cancelRestore);
                   <ul>
                     <li>
                       <a
-                        href="https://pc-play.games.dmm.com/play/angelic/"
+                        href="https://play.games.dmm.com/game/angelic/"
                         target="_blank"
                         rel="noopener noreferrer"
                         >エンジェリックリンク</a
@@ -59,7 +59,7 @@ onBeforeUnmount(mainStore.cancelRestore);
                     </li>
                     <li>
                       <a
-                        href="https://pc-play.games.dmm.co.jp/play/angelicr/"
+                        href="https://play.games.dmm.co.jp/game/angelicr/"
                         target="_blank"
                         rel="noopener noreferrer"
                         >エンジェリックリンクR🔞</a
