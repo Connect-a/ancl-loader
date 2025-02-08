@@ -1,14 +1,8 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
-import {
-  mdiVolumeHigh,
-  mdiArrowExpand,
-  mdiCheckerboard,
-  mdiChevronLeft,
-  mdiChevronRight,
-} from '@mdi/js';
+import { mdiVolumeHigh, mdiArrowExpand, mdiCheckerboard, mdiChevronLeft, mdiChevronRight } from '@mdi/js';
 import { Unzipper } from '@/scripts/zip';
-import type { StoryElement } from '@/@types';
+import type { CharacterMetaData, StoryElement } from '@/@types';
 import VideoContainer, { type VideoMedia } from './components/VideoContainer.vue';
 import SkeletonViewCols from './components/SkeletonListCols.vue';
 import AudioListCols from './components/AudioListCols.vue';
@@ -70,24 +64,17 @@ const fileNames = computed(() =>
 );
 
 const movieFileNames = computed(() => fileNames.value.filter((x) => x.includes('mp4')));
-const imageFileNames = computed(() =>
-  fileNames.value.filter((x) => x.includes('png') || x.includes('jpg')),
-);
+const imageFileNames = computed(() => fileNames.value.filter((x) => x.includes('png') || x.includes('jpg')));
 
 const readAllFiles = async (file: File) => {
   if (!file.name.includes('zip')) return;
   await state.zip.initAsync(file);
   // 音声の内容設定
   for (const entry of state.zip.entries.filter((x) => x.filename?.includes('.json'))) {
-    const obj = await state.zip.readFileAsJsonAsync(entry.filename);
-    if (entry.filename.includes('source.json') && Array.isArray(obj)) {
-      for (const t of obj) {
-        const vo =
-          t.p1_chara_voice_text +
-          t.p2_chara_voice_text +
-          t.p3_chara_voice_text +
-          t.p4_chara_voice_text +
-          t.p5_chara_voice_text;
+    if (entry.filename.includes('source.json')) {
+      const source = await state.zip.readFileAsJsonAsync<Array<StoryElement>>(entry.filename);
+      for (const t of source ?? []) {
+        const vo = t.p1_chara_voice_text + t.p2_chara_voice_text + t.p3_chara_voice_text + t.p4_chara_voice_text + t.p5_chara_voice_text;
         if (!vo) continue;
 
         state.audioTextMap.set(`${entry.filename}/${vo}`.replace('source.json', 'voice'), t.text);
@@ -95,16 +82,17 @@ const readAllFiles = async (file: File) => {
     }
 
     if (entry.filename.includes('meta.json')) {
-      if ('name' in obj) state.name = obj.name as string;
-      if ('msg' in obj) {
+      const meta = (await state.zip.readFileAsJsonAsync<Array<CharacterMetaData>>(entry.filename)) ?? {};
+      if ('name' in meta) state.name = meta.name as string;
+      if ('msg' in meta) {
         for (let i = 1; i <= 20; i++) {
           const key = `m${i}`;
-          state.audioTextMap.set(msgMap.get(key) ?? '', (obj.msg as Record<string, string>)[key]);
+          state.audioTextMap.set(msgMap.get(key) ?? '', (meta.msg as Record<string, string>)[key]);
         }
       }
 
-      if ('voiceTextMap' in obj) {
-        for (const [k, v] of Object.entries(obj.voiceTextMap as { [index: string]: string })) {
+      if ('voiceTextMap' in meta) {
+        for (const [k, v] of Object.entries(meta.voiceTextMap as { [index: string]: string })) {
           state.audioTextMap.set(`${k}.m4a`, v);
         }
       }
@@ -185,14 +173,7 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
               <li>画像の表示</li>
               <li>ストーリーの簡易再生</li>
             </ul>
-            <v-slider
-              v-model="state.volume"
-              :prepend-icon="mdiVolumeHigh"
-              :min="0"
-              :max="100"
-              hide-details
-              @update:modelValue="storeVolume"
-            />
+            <v-slider v-model="state.volume" :prepend-icon="mdiVolumeHigh" :min="0" :max="100" hide-details @update:modelValue="storeVolume" />
           </v-card-text>
         </v-card>
       </v-col>
@@ -219,13 +200,7 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
       <SkeletonViewCols :zip="state.zip" :file-names="fileNames" />
     </v-row>
     <v-row dense>
-      <AudioListCols
-        :zip="state.zip"
-        :chara-name="state.name"
-        :file-names="fileNames"
-        :volume="state.volume"
-        :audio-text-map="state.audioTextMap"
-      />
+      <AudioListCols :zip="state.zip" :chara-name="state.name" :file-names="fileNames" :volume="state.volume" :audio-text-map="state.audioTextMap" />
     </v-row>
     <v-row dense>
       <v-col cols="3">
@@ -256,9 +231,7 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
             </select>
           </v-card-text>
           <v-card-actions>
-            <v-btn size="x-small" variant="outlined" @click="state.image.selected = ''"
-              >クリア</v-btn
-            >
+            <v-btn size="x-small" variant="outlined" @click="state.image.selected = ''">クリア</v-btn>
             <v-btn
               size="x-small"
               :variant="state.image.expand ? 'plain' : 'outlined'"
@@ -282,9 +255,7 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
           :style="{
             maxHeight: state.image.expand ? 'unset' : '320px',
             width: state.image.expand ? '100%' : 'unset',
-            background: state.image.showChecker
-              ? `repeating-conic-gradient(#808080 0% 25%, #D3D3D3 0% 50%) 50% / 40px 40px`
-              : '',
+            background: state.image.showChecker ? `repeating-conic-gradient(#808080 0% 25%, #D3D3D3 0% 50%) 50% / 40px 40px` : '',
           }"
         />
       </v-col>
@@ -293,28 +264,15 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
     <!-- 動画 -->
     <v-row v-show="movieFileNames.length" dense>
       <v-col>
-        <v-card
-          title="◆動画"
-          v-show="movieFileNames?.length"
-          color="blue darken-4"
-          density="compact"
-          tabindex="-1"
-        >
+        <v-card title="◆動画" v-show="movieFileNames?.length" color="blue darken-4" density="compact" tabindex="-1">
           <v-card-text>
             <v-container>
               <v-row>
                 <template v-for="movie in movieFileNames" :key="movie">
-                  <v-btn
-                    v-show="!state.movie.stack.map((x) => x.name).includes(movie)"
-                    @click="addMovie(movie)"
-                    color="grey"
-                    >{{ movie.split('/').findLast((x) => x) }}</v-btn
-                  >
-                  <v-btn
-                    v-show="state.movie.stack.map((x) => x.name).includes(movie)"
-                    @click="removeMovie(movie)"
-                    color="green"
-                  >
+                  <v-btn v-show="!state.movie.stack.map((x) => x.name).includes(movie)" @click="addMovie(movie)" color="grey">{{
+                    movie.split('/').findLast((x) => x)
+                  }}</v-btn>
+                  <v-btn v-show="state.movie.stack.map((x) => x.name).includes(movie)" @click="removeMovie(movie)" color="green">
                     {{ movie.split('/').findLast((x) => x) }}
                   </v-btn>
                 </template>
@@ -331,16 +289,8 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
       </v-col>
     </v-row>
     <v-row dense>
-      <v-col
-        v-for="media in state.movie.stack"
-        :key="media.name"
-        :cols="state.movie.expands.has(media.name) ? 12 : 6"
-      >
-        <VideoContainer
-          :media="media"
-          :volume="state.volume / 100"
-          @click-expand="toggleMovieExpand(media.name)"
-        />
+      <v-col v-for="media in state.movie.stack" :key="media.name" :cols="state.movie.expands.has(media.name) ? 12 : 6">
+        <VideoContainer :media="media" :volume="state.volume / 100" @click-expand="toggleMovieExpand(media.name)" />
       </v-col>
     </v-row>
 

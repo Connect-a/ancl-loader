@@ -80,6 +80,7 @@ export class ZipDir {
     }
     return Promise.resolve();
   };
+  has = (filename: string) => this.#zipped.has(`${this.#dir}/${filename}`);
   end = () => this.#zip.close();
 }
 
@@ -90,43 +91,51 @@ export interface IUnzipper {
   readFile(filename: string): ZipEntry;
   readFileAsBlobAsync(filename: string): Promise<Blob> | undefined;
   readFileAsTextAsync(filename: string): Promise<string> | undefined;
-  readFileAsJsonAsync(filename: string): any;
+  readFileAsJsonAsync<T>(filename: string): Promise<T | undefined>;
   readFileAsData64UriAsync(filename: string, mimeString?: string): Promise<string> | undefined;
 }
 
-const Unzipper: {
-  new (): IUnzipper;
-} = function (this: IUnzipper) {
-  this.file = new File([], '');
-  this.entries = new Array<ZipEntry>();
-} as any;
+class Unzipper implements IUnzipper {
+  file: File;
+  entries: Array<ZipEntry>;
 
-Unzipper.prototype.initAsync = async function (file: File) {
-  this.file = file;
-  this.entries.splice(0);
-  this.entries.push(...(await new ZipReader(new BlobReader(this.file)).getEntries()));
-};
-Unzipper.prototype.readFile = function (filename: string) {
-  const target = this.entries.find((x: ZipEntry) => x.filename === filename);
-  if (!target) {
-    throw new Error(`存在していないファイルを読もうとした。（${filename}）`);
+  constructor() {
+    this.file = new File([], '');
+    this.entries = new Array<ZipEntry>();
   }
-  if (target.directory) {
-    throw new Error(`ディレクトリを読もうとした。（${filename}）`);
+
+  async initAsync(file: File): Promise<void> {
+    this.file = file;
+    this.entries.splice(0);
+    this.entries.push(...(await new ZipReader(new BlobReader(this.file)).getEntries()));
   }
-  return target;
-};
-Unzipper.prototype.readFileAsBlobAsync = function (filename: string) {
-  return this.readFile(filename).getData?.(new BlobWriter());
-};
-Unzipper.prototype.readFileAsTextAsync = function (filename: string) {
-  return this.readFile(filename).getData?.(new TextWriter());
-};
-Unzipper.prototype.readFileAsJsonAsync = async function (filename: string) {
-  return JSON.parse((await this.readFileAsTextAsync(filename)) ?? '{}');
-};
-Unzipper.prototype.readFileAsData64UriAsync = function (filename: string, mimeString?: string) {
-  return this.readFile(filename).getData?.(new Data64URIWriter(mimeString));
-};
+
+  readFile(filename: string): ZipEntry {
+    const target = this.entries.find((x: ZipEntry) => x.filename === filename);
+    if (!target) {
+      throw new Error(`存在していないファイルを読もうとした。（${filename}）`);
+    }
+    if (target.directory) {
+      throw new Error(`ディレクトリを読もうとした。（${filename}）`);
+    }
+    return target;
+  }
+
+  readFileAsBlobAsync(filename: string): Promise<Blob> | undefined {
+    return this.readFile(filename).getData?.(new BlobWriter());
+  }
+
+  readFileAsTextAsync(filename: string): Promise<string> | undefined {
+    return this.readFile(filename).getData?.(new TextWriter());
+  }
+
+  async readFileAsJsonAsync<T>(filename: string): Promise<T | undefined> {
+    return JSON.parse((await this.readFileAsTextAsync(filename)) ?? '{}') as T;
+  }
+
+  readFileAsData64UriAsync(filename: string, mimeString?: string): Promise<string> | undefined {
+    return this.readFile(filename).getData?.(new Data64URIWriter(mimeString));
+  }
+}
 
 export { Unzipper };

@@ -113,7 +113,7 @@ const handleDebuggerEvent = async (
     requestId: string;
     response: ReqRespData;
   };
-    switch (method) {
+  switch (method) {
     case 'Target.attachedToTarget':
       {
         const deb = { targetId: param?.targetInfo.targetId };

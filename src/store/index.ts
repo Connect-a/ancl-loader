@@ -1,16 +1,7 @@
 import { defineStore } from 'pinia';
 import { detachAll, setUpChrome } from '@/scripts/readResponse/chrome/catchResponse';
 import { storage } from 'webextension-polyfill';
-import type {
-  AllStories,
-  BattleEvent,
-  Characters,
-  Enemy,
-  InitData,
-  Radio,
-  SpecificVoice,
-  Voice,
-} from '@/@types';
+import type { AllStories, BattleEvent, Characters, Enemy, InitData, Radio, SpecificVoice, Voice } from '@/@types';
 import { anclDataFieldNames } from '@/scripts/anclDataFieldNames';
 
 export const useMainStore = defineStore('main', {
@@ -28,13 +19,27 @@ export const useMainStore = defineStore('main', {
   }),
   getters: {
     loaded: (state) =>
-      anclDataFieldNames.every((x) => !!((state as Record<string, any>)[x] as any)),
+      state.token !== '' &&
+      state.initData !== undefined &&
+      state.specificVoice !== undefined &&
+      state.characters !== undefined &&
+      state.stories !== undefined &&
+      state.enemy !== undefined &&
+      state.battleEvent !== undefined &&
+      state.radio !== undefined &&
+      state.voice !== undefined,
   },
   actions: {
     async init() {
-      for (const x of anclDataFieldNames) {
-        (this as Record<string, any>)[x] = (await storage.local.get(x))[x];
-      }
+      this.token = (await storage.local.get('token')).token as string;
+      this.initData = (await storage.local.get('initData')).initData as InitData;
+      this.specificVoice = (await storage.local.get('specificVoice')).specificVoice as Array<SpecificVoice>;
+      this.characters = (await storage.local.get('characters')).characters as Characters;
+      this.stories = (await storage.local.get('stories')).stories as AllStories;
+      this.enemy = (await storage.local.get('enemy')).enemy as Enemy;
+      this.battleEvent = (await storage.local.get('battleEvent')).battleEvent as BattleEvent;
+      this.radio = (await storage.local.get('radio')).radio as Radio;
+      this.voice = (await storage.local.get('voice')).voice as Voice;
     },
     async clear() {
       this.token = '';
