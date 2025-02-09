@@ -1,12 +1,7 @@
 import imageMergePatterns from './imageMergePatterns.json';
 import type { ZipDir } from '@/scripts/zip';
 
-export const loadCharaImage = async (
-  dir: ZipDir,
-  canvas: HTMLCanvasElement,
-  urlBase: string,
-  imageSuffixList: Array<string>,
-) => {
+export const loadCharaImage = async (dir: ZipDir, canvas: HTMLCanvasElement | undefined, urlBase: string, imageSuffixList: Array<string>) => {
   const tasks = new Array<Promise<unknown>>();
   const blobMap = new Map<string, Promise<Blob>>();
   const images = imageSuffixList.map((x) => ({
@@ -23,15 +18,11 @@ export const loadCharaImage = async (
   }
 
   // 画像差分の生成
-  tasks.push(mergeImg(dir, canvas, blobMap));
+  if (canvas) tasks.push(mergeImg(dir, canvas, blobMap));
   await Promise.all(tasks);
 };
 
-const mergeImg = async (
-  dir: ZipDir,
-  canvas: HTMLCanvasElement,
-  blobMap: Map<string, Promise<Blob>>,
-) => {
+const mergeImg = async (dir: ZipDir, canvas: HTMLCanvasElement, blobMap: Map<string, Promise<Blob>>) => {
   const tasks = new Array<Promise<unknown>>();
   const mergedPrefixes = new Array<string>();
   for (const mergePattern of imageMergePatterns as Array<Array<string>>) {

@@ -32,13 +32,7 @@ onBeforeUnmount(mainStore.cancelRestore);
     <v-app>
       <MainHeader />
       <v-main style="min-width: 800px">
-        <v-container
-          v-show="
-            route.name?.toString() !== 'Player' &&
-            route.name?.toString() !== 'News' &&
-            !mainStore.loaded
-          "
-        >
+        <v-container v-show="route.name?.toString() !== 'Player' && route.name?.toString() !== 'News' && !mainStore.loaded">
           <v-row>
             <v-col>
               <v-card v-if="!mainStore.loaded && !mainStore.isAwaitGameData">
@@ -50,69 +44,23 @@ onBeforeUnmount(mainStore.cancelRestore);
                   <p>エンジェリックリンクを開いて「ゲームスタート」してください。</p>
                   <ul>
                     <li>
-                      <a
-                        href="https://pc-play.games.dmm.com/play/angelic/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        >エンジェリックリンク</a
-                      >
+                      <a href="https://play.games.dmm.com/game/angelic/" target="_blank" rel="noopener noreferrer">エンジェリックリンク</a>
                     </li>
                     <li>
-                      <a
-                        href="https://pc-play.games.dmm.co.jp/play/angelicr/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        >エンジェリックリンクR🔞</a
-                      >
+                      <a href="https://play.games.dmm.co.jp/game/angelicr/" target="_blank" rel="noopener noreferrer">エンジェリックリンクR🔞</a>
                     </li>
                   </ul>
                   <details>
                     <summary>ロード詳細</summary>
-                    <v-banner
-                      density="compact"
-                      :icon="mainStore.token ? mdiCheck : mdiCancel"
-                      text="トークン"
-                    ></v-banner>
-                    <v-banner
-                      density="compact"
-                      :icon="mainStore.initData ? mdiCheck : mdiCancel"
-                      text="初期データ"
-                    ></v-banner>
-                    <v-banner
-                      density="compact"
-                      :icon="mainStore.specificVoice ? mdiCheck : mdiCancel"
-                      text="固有ボイス"
-                    ></v-banner>
-                    <v-banner
-                      density="compact"
-                      :icon="mainStore.characters ? mdiCheck : mdiCancel"
-                      text="キャラクター"
-                    ></v-banner>
-                    <v-banner
-                      density="compact"
-                      :icon="mainStore.stories ? mdiCheck : mdiCancel"
-                      text="ストーリー"
-                    ></v-banner>
-                    <v-banner
-                      density="compact"
-                      :icon="mainStore.enemy ? mdiCheck : mdiCancel"
-                      text="エネミー"
-                    ></v-banner>
-                    <v-banner
-                      density="compact"
-                      :icon="mainStore.battleEvent ? mdiCheck : mdiCancel"
-                      text="バトルイベント"
-                    ></v-banner>
-                    <v-banner
-                      density="compact"
-                      :icon="mainStore.radio ? mdiCheck : mdiCancel"
-                      text="ラジオ"
-                    ></v-banner>
-                    <v-banner
-                      density="compact"
-                      :icon="mainStore.voice ? mdiCheck : mdiCancel"
-                      text="ASMR"
-                    ></v-banner>
+                    <v-banner density="compact" :icon="mainStore.token ? mdiCheck : mdiCancel" text="トークン"></v-banner>
+                    <v-banner density="compact" :icon="mainStore.initData ? mdiCheck : mdiCancel" text="初期データ"></v-banner>
+                    <v-banner density="compact" :icon="mainStore.specificVoice ? mdiCheck : mdiCancel" text="固有ボイス"></v-banner>
+                    <v-banner density="compact" :icon="mainStore.characters ? mdiCheck : mdiCancel" text="キャラクター"></v-banner>
+                    <v-banner density="compact" :icon="mainStore.stories ? mdiCheck : mdiCancel" text="ストーリー"></v-banner>
+                    <v-banner density="compact" :icon="mainStore.enemy ? mdiCheck : mdiCancel" text="エネミー"></v-banner>
+                    <v-banner density="compact" :icon="mainStore.battleEvent ? mdiCheck : mdiCancel" text="バトルイベント"></v-banner>
+                    <v-banner density="compact" :icon="mainStore.radio ? mdiCheck : mdiCancel" text="ラジオ"></v-banner>
+                    <v-banner density="compact" :icon="mainStore.voice ? mdiCheck : mdiCancel" text="ASMR"></v-banner>
                   </details>
                 </v-card-text>
               </v-card>

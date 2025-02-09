@@ -18,11 +18,7 @@ const state = reactive({
 const items = computed(() =>
   Object.values(mainStore.stories?.main?.section ?? {})
     .sort((a, b) => a.order - b.order)
-    .filter((x) =>
-      state.filterNotDownloadedYet
-        ? !downloadHistoryStore.sectionDownloadHistory.find((h) => h.id === x.section_id)
-        : true,
-    )
+    .filter((x) => (state.filterNotDownloadedYet ? !downloadHistoryStore.sectionDownloadHistory.find((h) => h.id === x.section_id) : true))
     .map((x) => ({
       ...x,
       title: `${x.chapter} ${x.name} : ${x.section_id}`,
@@ -72,12 +68,7 @@ const download = async (section: Section) => {
   }
 
   tasks.push(downloadBg(zip, storyElements));
-  tasks.push(
-    zip.fileFromUrlAsync(
-      `${section.section_id}.jpg`,
-      `https://ancl.jp/img/game/event/section/${section.section_id}.jpg`,
-    ),
-  );
+  tasks.push(zip.fileFromUrlAsync(`${section.section_id}.jpg`, `https://ancl.jp/img/game/event/section/${section.section_id}.jpg`));
   // zipアーカイブ
   state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
   await Promise.all(tasks);
@@ -120,11 +111,7 @@ const download = async (section: Section) => {
     <!-- 検索 -->
     <v-row dense align="center">
       <v-col cols="auto">
-        <v-checkbox
-          dense
-          label="未ダウンロードのみ表示"
-          v-model="state.filterNotDownloadedYet"
-        ></v-checkbox>
+        <v-checkbox dense label="未ダウンロードのみ表示" v-model="state.filterNotDownloadedYet"></v-checkbox>
       </v-col>
     </v-row>
 
@@ -133,20 +120,14 @@ const download = async (section: Section) => {
       <v-col>
         <v-list :items="items ?? []" item-props>
           <template v-slot:prepend="{ item }">
-            <v-img
-              width="256"
-              class="mx-2"
-              :src="`https://ancl.jp/img/game/event/section/${item.section_id}.jpg`"
-            />
+            <v-img width="256" class="mx-2" :src="`https://ancl.jp/img/game/event/section/${item.section_id}.jpg`" />
           </template>
           <template v-slot:subtitle="{ item }">
             <ul>
               <li
                 v-for="story of mainStore.stories?.main?.story[item.section_id] ?? []"
                 :key="story.st_id"
-                :style="[
-                  enableStidMap.has(story.st_id) ? '' : { 'text-decoration': 'line-through' },
-                ]"
+                :style="[enableStidMap.has(story.st_id) ? '' : { 'text-decoration': 'line-through' }]"
               >
                 {{ story.st_id }} : {{ story.name }}
               </li>
@@ -156,26 +137,15 @@ const download = async (section: Section) => {
             <v-container>
               <v-row dense no-gutters>
                 <v-col>
-                  <v-btn
-                    @click="download(item)"
-                    color="success"
-                    :disabled="state.loadStatusMessage !== ''"
-                    >{{
-                      state.workingSectionId === item.section_id
-                        ? state.loadStatusMessage
-                        : 'ダウンロード'
-                    }}</v-btn
-                  >
+                  <v-btn @click="download(item)" color="success" :disabled="state.loadStatusMessage !== ''">{{
+                    state.workingSectionId === item.section_id ? state.loadStatusMessage : 'ダウンロード'
+                  }}</v-btn>
                 </v-col>
               </v-row>
               <v-row dense no-gutters>
                 <v-col>
                   <p class="blue">
-                    {{
-                      downloadHistoryStore.sectionDownloadHistory.find(
-                        (x) => x.id === item.section_id,
-                      )?.date ?? '-'
-                    }}
+                    {{ downloadHistoryStore.sectionDownloadHistory.find((x) => x.id === item.section_id)?.date ?? '-' }}
                   </p>
                 </v-col>
               </v-row>

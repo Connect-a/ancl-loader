@@ -1,5 +1,6 @@
 // ストーリー
 export type Story = {
+  adult_type: number;
   img: string;
   name: string;
   open?: { like: number }; // キャラだけ
@@ -25,15 +26,35 @@ export type AllStories = {
   limited: { section: Sections; story: Stories };
 };
 
+// キャラクターメタデータ
+export type CharacterMetaData = Character & {
+  id: string;
+  voiceTextMap: { [index: string]: string };
+};
+
 // キャラクター
 export type Character = {
   chara_id: string;
   name: string;
   kana: string;
   msg: { [index: string]: string };
-  profile: unknown;
+  profile: {
+    birth: string;
+    cv_name: string;
+    details: string;
+    flavor: string;
+    group: string;
+    height: string;
+    illust: string;
+    size: string;
+    weight: string;
+  };
   order: number;
+  dmg_type: number; // 1:物理 2:魔法
+  category: number; // 1:アタッカー 2:サポーター 3:ヒーラー 4:タンク
+  ele_type: number; // 1:日 2:月 3:火 4:水 5:木 6:金 7:土
 };
+
 export type Characters = { chara_data: { [index: string]: Character } };
 
 export type SpecificVoice = { chara_id: string; voice_id: string };

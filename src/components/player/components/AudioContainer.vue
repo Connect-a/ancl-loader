@@ -1,14 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, watch } from 'vue';
-import {
-  mdiArrowExpandHorizontal,
-  mdiPlaySpeed,
-  mdiVolumeHigh,
-  mdiPlay,
-  mdiPause,
-  mdiRepeat,
-  mdiDelete,
-} from '@mdi/js';
+import { mdiArrowExpandHorizontal, mdiPlaySpeed, mdiVolumeHigh, mdiPlay, mdiPause, mdiRepeat, mdiDelete } from '@mdi/js';
 
 const props = defineProps<{
   media: {
@@ -123,39 +115,12 @@ onMounted(() => {
         @update:modelValue="setPlaybackRate"
         @click:prepend="() => setPlaybackRate(1)"
       />
-      <v-slider
-        v-model="state.volume"
-        :prepend-icon="mdiVolumeHigh"
-        density="compact"
-        min="0"
-        :max="1"
-        step="0.01"
-        hide-details
-      />
-      <audio
-        :id="props.media.name"
-        :data-loop="state.loop"
-        :data-loop-range="state.loopRange"
-        :data-playback-rate="state.playbackRate"
-      ></audio>
+      <v-slider v-model="state.volume" :prepend-icon="mdiVolumeHigh" density="compact" min="0" :max="1" step="0.01" hide-details />
+      <audio :id="props.media.name" :data-loop="state.loop" :data-loop-range="state.loopRange" :data-playback-rate="state.playbackRate"></audio>
     </v-card-text>
     <v-card-actions>
-      <v-btn
-        v-if="!state.playing"
-        size="x-small"
-        :icon="mdiPlay"
-        color="primary"
-        variant="outlined"
-        @click="play"
-      />
-      <v-btn
-        v-if="state.playing"
-        size="x-small"
-        :icon="mdiPause"
-        color="primary"
-        variant="outlined"
-        @click="pause"
-      />
+      <v-btn v-if="!state.playing" size="x-small" :icon="mdiPlay" color="primary" variant="outlined" @click="play" />
+      <v-btn v-if="state.playing" size="x-small" :icon="mdiPause" color="primary" variant="outlined" @click="pause" />
       <v-btn
         size="x-small"
         :icon="mdiRepeat"

@@ -114,34 +114,11 @@ const pip = () => getVideo().requestPictureInPicture();
             hide-details /> -->
         </v-card-text>
         <v-card-actions class="pa-2">
-          <v-btn
-            size="x-small"
-            variant="outlined"
-            @click="pip"
-            color="grey"
-            title="ピクチャインピクチャ"
-            >PiP
-          </v-btn>
-          <v-btn
-            size="x-small"
-            variant="outlined"
-            @click="emit('clickExpand')"
-            color="grey"
-            title="広げる"
-            >Expand
-          </v-btn>
+          <v-btn size="x-small" variant="outlined" @click="pip" color="grey" title="ピクチャインピクチャ">PiP </v-btn>
+          <v-btn size="x-small" variant="outlined" @click="emit('clickExpand')" color="grey" title="広げる">Expand </v-btn>
         </v-card-actions>
       </v-card>
     </details>
-    <video
-      :id="props.media.name"
-      :src="srcUrl"
-      style="width: 100%"
-      loop
-      autoplay
-      @click="togglePlay"
-      @dblclick="fullscreen"
-      @loadeddata="onLoaded"
-    />
+    <video :id="props.media.name" :src="srcUrl" style="width: 100%" loop autoplay @click="togglePlay" @dblclick="fullscreen" @loadeddata="onLoaded" />
   </figure>
 </template>

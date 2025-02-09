@@ -29,7 +29,7 @@ const imageSuffixList = [
   'st_s_99.png',
 ];
 const sdImageSuffixList = ['ss.png'];
-for (let i = 1; i <= 26; i++) sdImageSuffixList.push(`sd_${String(i).padStart(2, '0')}.png`);
+for (let i = 1; i <= 23; i++) sdImageSuffixList.push(`sd_${String(i).padStart(2, '0')}.png`);
 for (let i = 51; i <= 56; i++) sdImageSuffixList.push(`sd_${String(i).padStart(2, '0')}.png`);
 // ボイス
 // 声 V901からV941
@@ -39,9 +39,7 @@ for (let i = 1; i <= 41; i++) voiceList.push({ type: '-', id: `V9${String(i).pad
 export const downloadCharacter = async (dir: ZipDir, createCanvas: () => HTMLCanvasElement) => {
   const tasks = new Array<Promise<unknown>>();
   const characterList = characters as Array<OtherCharacter>;
-  const charactersFetchResponse = await fetch(
-    'https://raw.githubusercontent.com/Connect-a/ancl-loader/master/src/repository/characters.json',
-  );
+  const charactersFetchResponse = await fetch('https://raw.githubusercontent.com/Connect-a/ancl-loader/master/src/repository/characters.json');
   if (charactersFetchResponse.ok) {
     for (const c of (await charactersFetchResponse.json()) as Array<OtherCharacter>) {
       if (characterList.find((x) => x.id === c.id)) continue;
@@ -55,31 +53,31 @@ export const downloadCharacter = async (dir: ZipDir, createCanvas: () => HTMLCan
     const imageBase = `https://ancl.jp/img/game/chara/${c.id}/graphic/${c.id}_`;
     const imageDir = d.folder('image');
     if (c.hasStandingPicture) {
-      tasks.push(
-        loadCharaImage(
-          imageDir,
-          createCanvas(),
-          imageBase,
-          imageSuffixList.concat(sdImageSuffixList),
-        ),
-      );
+      tasks.push(loadCharaImage(imageDir, createCanvas(), imageBase, imageSuffixList.concat(sdImageSuffixList)));
     }
     if (!c.hasStandingPicture) {
-      tasks.push(loadCharaImage(imageDir, createCanvas(), imageBase, sdImageSuffixList));
+      tasks.push(loadCharaImage(imageDir, undefined, imageBase, sdImageSuffixList));
     }
     //
     const voiceDir = d.folder('voice');
     for (const v of voiceList) {
-      tasks.push(
-        voiceDir.fileFromUrlAsync(
-          `${v.id}.m4a`,
-          `https://ancl.jp/img/game/chara/${c.id}/voice/${v.id}.m4a`,
-        ),
-      );
+      tasks.push(voiceDir.fileFromUrlAsync(`${v.id}.m4a`, `https://ancl.jp/img/game/chara/${c.id}/voice/${v.id}.m4a`));
     }
   }
 
   await Promise.all(tasks);
+
+  for (const c of characterList) {
+    // sd_24～sd_26のダウンロードはsd_23の存在が確認できたら。
+    const d = dir.folder(`${c.id}_${c.name}`);
+    //
+    const imageBase = `https://ancl.jp/img/game/chara/${c.id}/graphic/${c.id}_`;
+    const imageDir = d.folder('image');
+
+    if (imageDir.has('sd_23.png')) await loadCharaImage(imageDir ?? dir, undefined, imageBase, ['sd_24.png']);
+    if (imageDir.has('sd_24.png')) await loadCharaImage(imageDir ?? dir, undefined, imageBase, ['sd_25.png']);
+    if (imageDir.has('sd_25.png')) await loadCharaImage(imageDir ?? dir, undefined, imageBase, ['sd_26.png']);
+  }
 };
 
 export const downloadCharacterSkeleton = async (dir: ZipDir) => {

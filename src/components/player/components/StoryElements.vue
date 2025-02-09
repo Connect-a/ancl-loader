@@ -53,9 +53,7 @@ const state = reactive({
   } as CSSProperties,
 });
 
-const storySourceFileNames = computed(
-  () => props.fileNames?.filter((x) => x.includes('source.json')) ?? [],
-);
+const storySourceFileNames = computed(() => props.fileNames?.filter((x) => x.includes('source.json')) ?? []);
 
 // NOTE: ファイル名配列が空になった時にクリア
 watch(props.fileNames, async (v, _old) => {
@@ -107,13 +105,7 @@ const setStoryElements = async () => {
 const changeStoryElement = async () => {
   const audio = document.getElementById('story-audio') as HTMLAudioElement;
   if (!audio) return;
-  const text = `${
-    state.element.p1_chara_voice_text +
-    state.element.p2_chara_voice_text +
-    state.element.p3_chara_voice_text +
-    state.element.p4_chara_voice_text +
-    state.element.p5_chara_voice_text
-  }`;
+  const text = `${state.element.p1_chara_voice_text + state.element.p2_chara_voice_text + state.element.p3_chara_voice_text + state.element.p4_chara_voice_text + state.element.p5_chara_voice_text}`;
   if (!text) return;
   const targetVoice = `${state.target}/${text}`.replace('source.json', 'voice');
   const t = await props.zip.readFileAsBlobAsync(targetVoice);
@@ -203,27 +195,11 @@ const setResizeObserver = () => {
       />
       <span v-show="!state.float">◆ストーリー</span>
       <v-spacer></v-spacer>
-      <v-btn
-        :icon="mdiCog"
-        @click="state.showControl = !state.showControl"
-        density="compact"
-        title="設定"
-      />
+      <v-btn :icon="mdiCog" @click="state.showControl = !state.showControl" density="compact" title="設定" />
       <v-btn :icon="mdiContentSave" @click="saveStyle" density="compact" title="スタイルの保存" />
       <v-btn :icon="mdiThemeLightDark" @click="cardControll.toggleTheme" density="compact" />
-      <v-btn
-        :icon="mdiDockWindow"
-        @click="cardControll.floatCard"
-        v-show="!state.float"
-        density="compact"
-        title="浮かす"
-      />
-      <v-btn
-        :icon="mdiWindowClose"
-        @click="cardControll.fixCard"
-        v-show="state.float"
-        density="compact"
-      />
+      <v-btn :icon="mdiDockWindow" @click="cardControll.floatCard" v-show="!state.float" density="compact" title="浮かす" />
+      <v-btn :icon="mdiWindowClose" @click="cardControll.fixCard" v-show="state.float" density="compact" />
       <v-btn-group variant="outlined" density="compact" v-show="state.target">
         <v-btn :icon="mdiChevronLeft" @click="selectPrev('story-element-select')" title="前へ" />
         <v-btn :icon="mdiChevronRight" @click="selectNext('story-element-select')" title="次へ" />
@@ -232,9 +208,7 @@ const setResizeObserver = () => {
     <v-card-text style="line-height: initial">
       <div v-show="state.target" :style="{ fontSize: `${state.fontSize}em` }">
         <p class="my-2">
-          <span style="line-height: 1em">{{
-            state.element.speaker ? `【${state.element.speaker}】` : '-'
-          }}</span>
+          <span style="line-height: 1em">{{ state.element.speaker ? `【${state.element.speaker}】` : '-' }}</span>
         </p>
         <p class="my-2" style="min-height: 3rem">
           {{ state.element.text }}
@@ -248,37 +222,15 @@ const setResizeObserver = () => {
           {{ title }}
         </option>
       </select>
-      <select
-        v-show="state.target"
-        v-model="state.element"
-        @change="changeStoryElement"
-        class="mx-1"
-        id="story-element-select"
-      >
+      <select v-show="state.target" v-model="state.element" @change="changeStoryElement" class="mx-1" id="story-element-select">
         <option v-for="element in state.elements ?? []" :value="element" :key="element.text">
           {{ element.text }}
         </option>
       </select>
       <section v-show="state.showControl">
         <audio id="story-audio" :volume="props.volume / 100" controls></audio>
-        <v-slider
-          v-model="state.fontSize"
-          :prepend-icon="mdiFormatSize"
-          density="compact"
-          min="0.05"
-          max="3"
-          step="0.01"
-          hide-details
-        />
-        <v-slider
-          v-model="state.style.opacity"
-          :prepend-icon="mdiOpacity"
-          density="compact"
-          min="0.05"
-          max="1"
-          step="0.01"
-          hide-details
-        />
+        <v-slider v-model="state.fontSize" :prepend-icon="mdiFormatSize" density="compact" min="0.05" max="3" step="0.01" hide-details />
+        <v-slider v-model="state.style.opacity" :prepend-icon="mdiOpacity" density="compact" min="0.05" max="1" step="0.01" hide-details />
       </section>
     </v-card-text>
   </v-card>
