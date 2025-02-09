@@ -50,6 +50,9 @@ export type Character = {
     weight: string;
   };
   order: number;
+  dmg_type: number; // 1:物理 2:魔法
+  category: number; // 1:アタッカー 2:サポーター 3:ヒーラー 4:タンク
+  ele_type: number; // 1:日 2:月 3:火 4:水 5:木 6:金 7:土
 };
 
 export type Characters = { chara_data: { [index: string]: Character } };
