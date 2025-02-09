@@ -9,6 +9,7 @@ import {
   Uint8ArrayReader,
   HttpReader,
   type Entry,
+  type EntryMetaData,
 } from '@zip.js/zip.js';
 
 export type ZipEntry = Entry;
@@ -17,20 +18,18 @@ export class ZipDir {
   #dir: string;
   #zip: ZipWriter<Blob>;
   #zipped = new Set<string>();
-  constructor(dir?: string, zip?: ZipWriter<Blob>) {
-    this.#dir = dir ?? '';
-    if (zip) {
-      this.#zip = zip;
+  constructor(dirName?: string, zipDir?: ZipDir) {
+    this.#dir = dirName ?? '';
+    if (zipDir) {
+      this.#zip = zipDir.#zip;
+      this.#zipped = zipDir.#zipped;
     } else {
       this.#zip = new ZipWriter(new BlobWriter('application/zip'), { bufferedWrite: true });
     }
   }
 
-  folder = (dir: string) => new ZipDir(`${this.#dir}/${dir}`, this.#zip);
-  fileAsync = async (
-    filename: string,
-    body: ReadableStream<Uint8Array> | Uint8Array | Blob | Promise<Blob> | string | null,
-  ) => {
+  folder = (dir: string) => new ZipDir(`${this.#dir}/${dir}`, this);
+  fileAsync = async (filename: string, body: ReadableStream<Uint8Array> | Uint8Array | Blob | Promise<Blob> | string | null) => {
     if (!body) return Promise.resolve('fileAsyncに空のbodyが渡された。');
     const n = `${this.#dir}/${filename}`;
     if (this.#zipped.has(n)) {
@@ -65,20 +64,22 @@ export class ZipDir {
         }
       }
     } catch (e) {
-      console.log(e);
+      console.error(e);
     }
 
     return Promise.resolve();
   };
   fileFromUrlAsync = async (filename: string, url: string) => {
+    let entry = {} as EntryMetaData;
     try {
-      return await this.#zip.add(`${this.#dir}/${filename}`, new HttpReader(url));
+      entry = await this.#zip.add(`${this.#dir}/${filename}`, new HttpReader(url));
+      this.#zipped.add(`${this.#dir}/${filename}`);
     } catch (e: unknown) {
       if (e instanceof Error) {
-        console.log(e.message);
+        console.error(e.message);
       }
     }
-    return Promise.resolve();
+    return entry;
   };
   has = (filename: string) => this.#zipped.has(`${this.#dir}/${filename}`);
   end = () => this.#zip.close();

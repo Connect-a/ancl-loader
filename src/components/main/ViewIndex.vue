@@ -169,6 +169,20 @@ const download = async (character: Character) => {
         </v-card>
       </v-col>
     </v-row>
+    <v-row>
+      <v-col>
+        <v-card>
+          <v-card-title primary-title>⚠️注意⚠️</v-card-title>
+          <v-card-text>
+            <ul>
+              <li>短時間に連続で大量にダウンロードするとIPアドレスがテイクダウンされてエンジェリックリンクにアクセスできなくなる可能性あり</li>
+              <li>安全をとるなら5分ほど間隔をとるべし</li>
+              <li>ダウンロード失敗（404）がWAFかCDN上で一定時間内に多く発生するとIPアドレスで弾かれているようす</li>
+            </ul>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
     <!-- 検索 -->
     <v-row dense align="center" v-if="mainStore.characters?.chara_data && mainStore.stories?.chara?.story">
       <v-col>
