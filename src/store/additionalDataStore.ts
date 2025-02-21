@@ -3,9 +3,8 @@ import { defineStore } from 'pinia';
 
 const key = 'additionalData';
 
-export type AdditionalDataType = 'radio' | 'voice' | 'story';
-export type AdditionalData = {
-  type: AdditionalDataType;
+type AdditionalData = {
+  type: 'radio' | 'voice' | 'story';
   charaId: string;
   charaName: string;
   stid: number;
@@ -25,8 +24,28 @@ export const useAdditionalDataStore = defineStore('additionalDataStore', {
     async init() {
       this.additionalData = ((await storage.local.get(key))?.additionalData ?? []) as Array<AdditionalData>;
     },
-    async setAdditionalData(stories: Array<AdditionalData>) {
-      await storage.local.set({ additionalData: stories });
+    async setAdditionalData(charaImportUrl: string) {
+      if (charaImportUrl) localStorage.setItem('charaImportUrl', charaImportUrl);
+
+      charaImportUrl = localStorage.getItem('charaImportUrl') ?? '';
+      const charaList = (await (await fetch(charaImportUrl)).text()).split('\n');
+      if (charaList.length <= 1) return;
+
+      await storage.local.set({
+        additionalData: charaList.map((x) => {
+          const [charaId, charaName, stid, storyId] = x.split('_');
+          let t = 'story';
+          if (charaId === 'voice') t = 'voice';
+          if (charaId === 'radio') t = 'radio';
+          return {
+            type: t,
+            charaId,
+            charaName,
+            stid: Number(stid),
+            storyId,
+          } as AdditionalData;
+        }),
+      });
       this.additionalData.splice(0);
       this.additionalData.push(...(((await storage.local.get(key))?.additionalData ?? []) as Array<AdditionalData>));
     },

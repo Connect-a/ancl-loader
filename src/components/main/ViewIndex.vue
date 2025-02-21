@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue';
-import { ZipDir } from '@/scripts/zip';
+import { computed, nextTick, reactive } from 'vue';
 import type { Character } from '@/@types';
-import { downloadCharacter } from '@/repository/downloadCharacter';
-import { downloadStory, fillStoryData } from '@/repository/downloadStory';
+import { downoadCharacter } from '@/repository/downloadCharacter';
 import { useMainStore } from '@/store';
 import { useDownloadHistoryStore } from '@/store/downloadHistoryStore';
-import { type AdditionalData, useAdditionalDataStore, type AdditionalDataType } from '@/store/additionalDataStore';
+import { useAdditionalDataStore } from '@/store/additionalDataStore';
+import CharaDetailCard from './components/CharaDetailCard.vue';
+import { mdiCancel } from '@mdi/js';
 
+type SortTarget = 'b' | 'w' | 'h' | 'height' | 'weight' | 'birthDate';
 const mainStore = useMainStore();
 const downloadHistoryStore = useDownloadHistoryStore();
 const additionalDataStore = useAdditionalDataStore();
@@ -18,54 +19,16 @@ const state = reactive({
   profileKeyword: '',
   filterNotDownloadedYet: false,
   filterAcquiredCharacter: false,
+  sort: '' as SortTarget | '',
   charaImportUrl: localStorage.getItem('charaImportUrl') ?? '',
   loadingStatusMessage: '',
   workingCharaId: '',
+  charaDetailDialog: {
+    targetId: '',
+    show: false,
+    showLargeImage: false,
+  },
 });
-
-const enableStidMap = computed(() => {
-  if (!mainStore.stories) return new Map();
-  if (!mainStore.initData) return new Map();
-
-  return new Map(
-    Object.entries(mainStore.stories.chara?.story ?? {}).flatMap(([charaId, stories]) =>
-      stories
-        .filter((s) => {
-          if (additionalDataStore.storyAdditionalData.find((x) => x.stid === s.st_id)) return true;
-          const like = mainStore.initData?.result.player_data.story.chara[charaId];
-          if (!like) return false;
-          return s.order <= like;
-        })
-        .map((s) => [s.st_id, s]),
-    ),
-  );
-});
-
-const loadAdditionalChara = async () => {
-  if (state.charaImportUrl) localStorage.setItem('charaImportUrl', state.charaImportUrl);
-
-  state.charaImportUrl = localStorage.getItem('charaImportUrl') ?? '';
-  const charaList = (await (await fetch(state.charaImportUrl)).text()).split('\n');
-  if (charaList.length <= 1) return;
-
-  additionalDataStore.setAdditionalData(
-    charaList.map((x) => {
-      const [charaId, charaName, stid, storyId] = x.split('_');
-      let t: AdditionalDataType = 'story';
-      if (charaId === 'voice') t = 'voice';
-      if (charaId === 'radio') t = 'radio';
-      return {
-        type: t,
-        charaId,
-        charaName,
-        stid: Number(stid),
-        storyId,
-      } as AdditionalData;
-    }),
-  );
-
-  state.keyword = '';
-};
 
 const getBattleTypeText = (chara: Character) => {
   const dmgTypeMap = new Map([
@@ -90,12 +53,29 @@ const getBattleTypeText = (chara: Character) => {
   return `${dmgTypeMap.get(chara.dmg_type) ?? '【？？？】'}${eleTypeMap.get(chara.ele_type) ?? '？？？'}属性${categoryMap.get(chara.category) ?? '？？？'}`;
 };
 
-const items = computed(() => {
-  const s = state.keyword.replace(/[\u3041-\u3096]/g, (m) => String.fromCharCode(m.charCodeAt(0) + 0x60));
+const itemsSrc = computed(() => {
   const caharaIdSet = new Set(Object.keys(mainStore.initData?.result.player_data.chara ?? {}));
-  return Object.values(mainStore.characters?.chara_data ?? {})
-    .map((x) => ({ ...x, acquired: caharaIdSet.has(x.chara_id), battleTypeText: getBattleTypeText(x) }))
-    .filter((x) => x.name.includes(s) || x.kana.includes(s))
+  return Object.values(mainStore.characters?.chara_data ?? {}).map((x) => ({
+    ...x,
+    acquired: caharaIdSet.has(x.chara_id),
+    battleTypeText: getBattleTypeText(x),
+    sortTarget: {
+      b: parseInt(x.profile.size.split('-')[0]),
+      w: parseInt(x.profile.size.split('-')[1]),
+      h: parseInt(x.profile.size.split('-')[2]),
+      height: parseInt(x.profile.height.replace('cm', '').trim()),
+      weight: parseInt(x.profile.weight.trim()),
+      birthDate: parseInt(
+        `${x.profile.birth.split('月')[0]?.padStart(2, '0') ?? ''}${x.profile.birth.split('月')[1]?.split('日')[0]?.padStart(2, '0') ?? ''}`,
+      ),
+    } as Record<SortTarget, number>,
+  }));
+});
+
+const items = computed(() => {
+  const s = (state.keyword ?? '').replace(/[\u3041-\u3096]/g, (m) => String.fromCharCode(m.charCodeAt(0) + 0x60));
+  const filtered = itemsSrc.value
+    .filter((x) => x.name.includes(s) || x.name.includes(state.keyword) || x.kana.includes(s) || x.chara_id.includes(s))
     .filter((x) => x.chara_id !== '000000')
     .filter((x) =>
       state.profileKeyword && state.profileKeyword !== '/'
@@ -103,77 +83,43 @@ const items = computed(() => {
         : true,
     )
     .filter((x) => (state.filterNotDownloadedYet ? !downloadHistoryStore.downloadHistory.find((h) => h?.id === x.chara_id) : true))
-    .filter((x) => (state.filterAcquiredCharacter ? x.acquired : true))
-    .sort((a, b) => a.order - b.order);
+    .filter((x) => (state.filterAcquiredCharacter ? x.acquired : true));
+
+  if (!state.sort) return filtered;
+
+  // NOTE: 処理負荷軽減のためsortについてメソッドチェーンを分離
+  return filtered
+    .filter((x) => x.sortTarget[state.sort as SortTarget])
+    .sort((a, b) => {
+      if (a.sortTarget[state.sort as SortTarget] === b.sortTarget[state.sort as SortTarget]) return a.name.localeCompare(b.name);
+      return a.sortTarget[state.sort as SortTarget] - b.sortTarget[state.sort as SortTarget];
+    });
 });
 
 const download = async (character: Character) => {
-  const tasks = new Array<Promise<unknown>>();
-  state.loadingStatusMessage = '開始中…';
+  state.loadingStatusMessage = 'ダウンロード中...';
   state.workingCharaId = character.chara_id;
-
-  const zip = new ZipDir(character.name);
-  // 基本
-  state.loadingStatusMessage = '基本情報のダウンロード中…';
-  tasks.push(downloadCharacter(zip, character, document.createElement('canvas')));
-
-  // スケルトン
-  {
-    const skeletonDir = zip.folder('skeleton');
-    const types = ['spine_n', 'spine_w'];
-    const extensions = ['.atlas', '.json', '.png'];
-    for (const t of types) {
-      const d = skeletonDir.folder(t);
-      for (const e of extensions) {
-        tasks.push(d.fileFromUrlAsync(`skeleton${e}`, `https://ancl.jp/img/game/chara/${character.chara_id}/${t}/skeleton${e}`));
-      }
-    }
-  }
-
-  // ストーリー
-  state.loadingStatusMessage = 'ストーリーデータのダウンロード中…';
-  const stories = mainStore.stories?.chara.story[character.chara_id];
-  if (!stories) {
-    state.loadingStatusMessage = '【例外】ストーリーの取得失敗した。';
-    throw '【例外】ストーリーの取得失敗した。';
-  }
-
-  const filledStories = await fillStoryData(stories, enableStidMap.value);
-  const stidLoggingTasks = new Array<Promise<Response>>();
-  for await (const s of filledStories) {
-    await downloadStory(zip, s, character);
-    if (!s.storyId) continue;
-    stidLoggingTasks.push(
-      fetch(
-        `https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=${encodeURIComponent(
-          `${character.chara_id}_${character.name}_${s.st_id}_${s.storyId}`,
-        )}?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`,
-        {
-          method: 'GET',
-          mode: 'no-cors',
-          cache: 'no-cache',
-          credentials: 'same-origin',
-        },
-      ),
-    );
-  }
-
-  await Promise.all(tasks);
-  // zipアーカイブ
-  state.loadingStatusMessage = 'アーカイブなう…（時間かかるよ）';
-  const blob = await zip.end();
-
-  state.loadingStatusMessage = 'リンク生成中…';
-  const a = document.createElement('a');
-  a.download = `エンクリ_${character.name}.zip`;
-  a.href = URL.createObjectURL(blob);
-  a.click();
-
-  await Promise.all(stidLoggingTasks);
-  downloadHistoryStore.pushDownloadHistory(character.chara_id);
-
+  await downoadCharacter(character);
   state.loadingStatusMessage = '';
   state.workingCharaId = '';
+};
+
+const showCharaDetail = (charaId: string) => {
+  state.charaDetailDialog.targetId = charaId;
+  state.charaDetailDialog.show = true;
+  nextTick(() => document.getElementById('chara-detail-card')?.focus());
+};
+
+const setKeyword = (keyword: string) => {
+  state.keyword = keyword;
+  state.profileKeyword = '';
+  state.charaDetailDialog.show = false;
+};
+
+const setkProfileKeyword = (keyword: string) => {
+  state.profileKeyword = keyword;
+  state.keyword = '';
+  state.charaDetailDialog.show = false;
 };
 </script>
 
@@ -197,11 +143,11 @@ const download = async (character: Character) => {
               </ul>
             </v-expansion-panel-text>
           </v-expansion-panel>
-          <v-expansion-panel title="⚠️注意⚠️">
+          <v-expansion-panel title="⚠️使用上の注意⚠️">
             <v-expansion-panel-text>
               <ul>
                 <li>短時間に連続で大量にダウンロードするとIPアドレスがテイクダウンされてエンジェリックリンクにアクセスできなくなる可能性あり</li>
-                <li>安全をとるなら5分ほど間隔をとるべし</li>
+                <li>安全に使いたいならダウンロードごとにおよそ5分の間隔を空けること。</li>
                 <li>ダウンロード失敗（404）がWAFかCDN上で一定時間内に多く発生するとIPアドレスで弾かれているようす</li>
               </ul>
             </v-expansion-panel-text>
@@ -210,13 +156,19 @@ const download = async (character: Character) => {
       </v-col>
     </v-row>
     <!-- 検索 -->
-    <v-row dense align="center" v-if="mainStore.characters?.chara_data && mainStore.stories?.chara?.story">
+    <v-row dense align="center" v-show="mainStore.characters?.chara_data">
       <v-col>
-        <v-text-field v-model="state.keyword" @input="state.page = 1" label="キャラ名検索" clearable outlined dense class="my-3" />
+        <v-text-field v-model="state.keyword" @input="state.page = 1" label="キャラ名・ID検索" clearable outlined dense class="my-3" />
         <v-text-field v-model="state.profileKeyword" @input="state.page = 1" label="プロフィール検索" clearable outlined dense class="my-3" />
         <template v-if="state.keyword === 'opensesame'">
           <v-text-field label="URL" v-model="state.charaImportUrl" />
-          <v-btn @click="loadAdditionalChara">ロード</v-btn>
+          <v-btn
+            @click="
+              additionalDataStore.setAdditionalData(state.charaImportUrl);
+              state.keyword = '';
+            "
+            >ロード</v-btn
+          >
         </template>
       </v-col>
       <v-col cols="auto">
@@ -224,77 +176,36 @@ const download = async (character: Character) => {
         <v-checkbox density="compact" hide-details label="所持済みのみ表示" v-model="state.filterAcquiredCharacter"></v-checkbox>
       </v-col>
     </v-row>
-
+    <v-row dense align="center" v-show="mainStore.characters?.chara_data">
+      <v-col class="border">
+        <v-label>ソート</v-label>
+        <v-btn-toggle v-model="state.sort" color="primary">
+          <v-btn value="b">b</v-btn>
+          <v-btn value="w">w</v-btn>
+          <v-btn value="h">h</v-btn>
+          <v-btn value="height">height</v-btn>
+          <v-btn value="weight">weight</v-btn>
+          <v-btn value="birthDate">birthDate</v-btn>
+          <v-btn :icon="mdiCancel" value="" />
+        </v-btn-toggle>
+      </v-col>
+    </v-row>
     <!-- リスト -->
     <v-row dense v-if="mainStore.characters?.chara_data && mainStore.initData?.result">
       <v-col>
         <v-data-iterator v-if="mainStore.loaded" :items="items" :page="state.page" itemsPerPage="30">
           <template v-slot:default="{ items }">
             <v-list-item v-for="item in items" :key="item.raw.chara_id" :title="`${item.raw.name} : ${item.raw.chara_id}`">
-              <!-- アバター画像と情報ダイアログ -->
+              <!-- アバター画像-->
               <template v-slot:prepend>
-                <v-dialog scroll-strategy="none">
-                  <template v-slot:activator="{ props }">
-                    <v-btn icon size="100" rounded="sm" v-bind="props" class="mx-2">
-                      <v-avatar size="100" rounded="sm">
-                        <v-img
-                          :src="`https://ancl.jp/img/game/chara/${item.raw.chara_id}/graphic/${item.raw.chara_id}_ss.png`"
-                          :alt="`${item.raw.name}`"
-                        />
-                      </v-avatar>
-                    </v-btn>
-                  </template>
-                  <template v-slot:default="{}">
-                    <v-card :title="`${item.raw.name} : ${item.raw.chara_id}`">
-                      <v-card-text style="font-size: medium">
-                        <v-row>
-                          <v-col cols="3">
-                            <v-img
-                              :src="`https://ancl.jp/img/game/chara/${item.raw.chara_id}/graphic/${item.raw.chara_id}_gr_t.jpg`"
-                              :alt="`${item.raw.name}`"
-                            />
-                          </v-col>
-                          <v-col cols="3">
-                            <ul>
-                              <li>{{ item.raw.battleTypeText }}</li>
-                              <li>
-                                所属：<span
-                                  class="text-cyan text-decoration-underline cursor-pointer"
-                                  @click="state.profileKeyword = item.raw.profile.group"
-                                  >{{ item.raw.profile.group }}</span
-                                >
-                              </li>
-                              <li>
-                                CV：<span
-                                  class="text-cyan text-decoration-underline cursor-pointer"
-                                  @click="state.profileKeyword = item.raw.profile.cv_name"
-                                  >{{ item.raw.profile.cv_name }}</span
-                                >
-                              </li>
-                              <li>
-                                イラスト：<span
-                                  class="text-cyan text-decoration-underline cursor-pointer"
-                                  @click="state.profileKeyword = item.raw.profile.illust"
-                                  >{{ item.raw.profile.illust }}</span
-                                >
-                              </li>
-                              <li>誕生日：{{ item.raw.profile.birth }}</li>
-                              <li>身長：{{ item.raw.profile.height }}</li>
-                              <li>体重：{{ item.raw.profile.weight }}</li>
-                              <li>サイズ：{{ item.raw.profile.size }}</li>
-                            </ul>
-                          </v-col>
-                          <v-col cols="6">
-                            <ul>
-                              <li>{{ item.raw.profile.flavor }}</li>
-                              <li>{{ item.raw.profile.details }}</li>
-                            </ul>
-                          </v-col>
-                        </v-row>
-                      </v-card-text>
-                    </v-card>
-                  </template>
-                </v-dialog>
+                <v-btn @click="showCharaDetail(item.raw.chara_id)" size="100" rounded="sm" class="mx-2">
+                  <v-avatar size="100" rounded="sm">
+                    <v-img
+                      :src="`https://ancl.jp/img/game/chara/${item.raw.chara_id}/graphic/${item.raw.chara_id}_ss.png`"
+                      :alt="`${item.raw.name}`"
+                    />
+                  </v-avatar>
+                </v-btn>
               </template>
               <!-- 話リスト -->
               <v-list-item-subtitle>
@@ -302,7 +213,7 @@ const download = async (character: Character) => {
                   <li
                     v-for="story of mainStore.stories?.chara?.story[item.raw.chara_id]"
                     :key="story.st_id"
-                    :style="[enableStidMap.has(story.st_id) ? '' : { 'text-decoration': 'line-through' }]"
+                    :style="[mainStore.enableStidMap.has(story.st_id) ? '' : { 'text-decoration': 'line-through' }]"
                   >
                     {{ story.st_id }} : {{ story.name }}
                   </li>
@@ -312,9 +223,7 @@ const download = async (character: Character) => {
                 <v-container>
                   <v-row dense no-gutters>
                     <v-col>
-                      <p>
-                        {{ item.raw.acquired ? '' : '(未所持)' }}
-                      </p>
+                      <p>{{ item.raw.acquired ? '' : '(未所持)' }}</p>
                     </v-col>
                   </v-row>
                   <v-row dense no-gutters>
@@ -344,5 +253,18 @@ const download = async (character: Character) => {
         </v-data-iterator>
       </v-col>
     </v-row>
+    <v-dialog v-model="state.charaDetailDialog.show" :persistant="state.workingCharaId" scrollable scroll-strategy="none" fullscreen tabindex="-1">
+      <CharaDetailCard
+        :targetId="state.charaDetailDialog.targetId"
+        :items="items"
+        :loadingStatusMessage="state.loadingStatusMessage"
+        :workingCharaId="state.workingCharaId"
+        @clickEsc="state.charaDetailDialog.show = false"
+        @clickProfileKeyword="setkProfileKeyword"
+        @clickKeyword="setKeyword"
+        @clickDownload="download(items.find((x) => x.chara_id === state.charaDetailDialog.targetId) ?? ({} as Character))"
+        @changeTargetId="state.charaDetailDialog.targetId = $event"
+      />
+    </v-dialog>
   </v-container>
 </template>

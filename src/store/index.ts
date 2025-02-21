@@ -3,6 +3,7 @@ import { detachAll, setUpChrome } from '@/scripts/readResponse/chrome/catchRespo
 import { storage } from 'webextension-polyfill';
 import type { AllStories, BattleEvent, Characters, Enemy, InitData, Radio, SpecificVoice, Voice } from '@/@types';
 import { anclDataFieldNames } from '@/scripts/anclDataFieldNames';
+import { useAdditionalDataStore } from './additionalDataStore';
 
 export const useMainStore = defineStore('main', {
   state: () => ({
@@ -28,6 +29,24 @@ export const useMainStore = defineStore('main', {
       state.battleEvent !== undefined &&
       state.radio !== undefined &&
       state.voice !== undefined,
+    enableStidMap: (state) => {
+      if (!state.stories) return new Map();
+      if (!state.initData) return new Map();
+
+      const additionalDataStore = useAdditionalDataStore();
+      return new Map(
+        Object.entries(state.stories.chara?.story ?? {}).flatMap(([charaId, stories]) =>
+          stories
+            .filter((s) => {
+              if (additionalDataStore.storyAdditionalData.find((x) => x.stid === s.st_id)) return true;
+              const like = state.initData?.result.player_data.story.chara[charaId];
+              if (!like) return false;
+              return s.order <= like;
+            })
+            .map((s) => [s.st_id, s]),
+        ),
+      );
+    },
   },
   actions: {
     async init() {
