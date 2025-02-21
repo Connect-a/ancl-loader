@@ -83,10 +83,6 @@ onBeforeUnmount(mainStore.cancelRestore);
 <style scoped></style>
 
 <style>
-.focusable:focus {
-  filter: brightness(1.2);
-}
-
 ul {
   padding-inline-start: 40px;
 }

@@ -6,12 +6,75 @@ import imageSuffixes from './imageSuffixes.json';
 import molabLeft from './molab_left.json';
 import { loadCharaImage } from './anclCharaImageLoader';
 import { useMainStore } from '@/store';
+import { downloadStory, fillStoryData } from '@/repository/downloadStory';
+import { useDownloadHistoryStore } from '@/store/downloadHistoryStore';
 
-export const downloadCharacter = async (zipDir: ZipDir, character: Character, canvas: HTMLCanvasElement) => {
+export const downoadCharacter = async (character: Character) => {
+  const tasks = new Array<Promise<unknown>>();
+
+  const zip = new ZipDir(character.name);
+  // 基本
+  tasks.push(downloadCharacterImageAndVoice(zip, character, document.createElement('canvas')));
+
+  // スケルトン
+  {
+    const skeletonDir = zip.folder('skeleton');
+    const types = ['spine_n', 'spine_w'];
+    const extensions = ['.atlas', '.json', '.png'];
+    for (const t of types) {
+      const d = skeletonDir.folder(t);
+      for (const e of extensions) {
+        tasks.push(d.fileFromUrlAsync(`skeleton${e}`, `https://ancl.jp/img/game/chara/${character.chara_id}/${t}/skeleton${e}`));
+      }
+    }
+  }
+
+  // ストーリー
+  const mainStore = useMainStore();
+  const stories = mainStore.stories?.chara.story[character.chara_id];
+  if (!stories) {
+    throw '【例外】ストーリーの取得失敗した。';
+  }
+
+  const filledStories = await fillStoryData(stories, mainStore.enableStidMap);
+  const stidLoggingTasks = new Array<Promise<Response>>();
+  for await (const s of filledStories) {
+    await downloadStory(zip, s, character);
+    if (!s.storyId) continue;
+    stidLoggingTasks.push(
+      fetch(
+        `https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=${encodeURIComponent(
+          `${character.chara_id}_${character.name}_${s.st_id}_${s.storyId}`,
+        )}?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`,
+        {
+          method: 'GET',
+          mode: 'no-cors',
+          cache: 'no-cache',
+          credentials: 'same-origin',
+        },
+      ),
+    );
+  }
+
+  await Promise.all(tasks);
+  // zipアーカイブ
+  const blob = await zip.end();
+
+  const a = document.createElement('a');
+  a.download = `エンクリ_${character.name}.zip`;
+  a.href = URL.createObjectURL(blob);
+  a.click();
+
+  await Promise.all(stidLoggingTasks);
+  const downloadHistoryStore = useDownloadHistoryStore();
+  downloadHistoryStore.pushDownloadHistory(character.chara_id);
+};
+
+export const downloadCharacterImageAndVoice = async (zipDir: ZipDir, character: Character, canvas: HTMLCanvasElement) => {
   const mainStore = useMainStore();
   const isFulten = character.name.includes('ふる転');
 
-  const V413Text = (molabLeft as Array<{ id: string; text: string }>).find((x) => x.id === character.chara_id)?.text ?? '';
+  const V413Text = molabLeft.find((x) => x.id === character.chara_id)?.text ?? '';
 
   zipDir.fileAsync(
     'meta.json',
@@ -26,7 +89,10 @@ export const downloadCharacter = async (zipDir: ZipDir, character: Character, ca
 
   // ボイス
   {
-    const voiceList = (voice as Array<{ type: string; id: string }>).filter((x) => !isFulten || (x.id !== 'V101' && x.id !== 'V112'));
+    const skipVoice = new Set(['V404', 'V405', 'V406', 'V407', 'V408', 'V409', 'V410']);
+    const voiceList = (voice as Array<{ type: string; id: string }>)
+      .filter((x) => !skipVoice.has(x.id))
+      .filter((x) => !isFulten || (x.id !== 'V101' && x.id !== 'V112'));
 
     // 総選挙 V404からV406 存在しないキャラあり
     voiceList.push({ type: 'm15', id: 'V404' });
