@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineProps } from 'vue';
+import { computed } from 'vue';
 import voice from '@/repository/voice.json';
 import molabLeft from '@/repository/molab_left.json';
 import { mdiPlayCircle } from '@mdi/js';
