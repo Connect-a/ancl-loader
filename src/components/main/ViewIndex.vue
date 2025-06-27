@@ -139,7 +139,7 @@ const setkProfileKeyword = (keyword: string) => {
                     <li>ストーリー解放したらヘッダーのボタンから再読み込み</li>
                   </ul>
                 </li>
-                <li>🆕アイコンクリックでプロフィール表示</li>
+                <li>アイコンクリックでプロフィール表示</li>
               </ul>
             </v-expansion-panel-text>
           </v-expansion-panel>
