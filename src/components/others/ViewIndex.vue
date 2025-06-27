@@ -8,6 +8,10 @@ import charaSkeletons from '@/repository/characterSkeletons.json';
 import images from '@/repository/images.json';
 import { useMainStore } from '@/store';
 
+const key_downloadHistory = 'downloadHistory';
+const key_sectionDownloadHistory = 'sectionDownloadHistory';
+const key_charaImportUrl = 'charaImportUrl';
+
 const mainStore = useMainStore();
 
 const state = reactive({
@@ -136,6 +140,42 @@ const downloadRadio = async () => {
   state.loadStatusMessage = '';
   state.workingId = '';
 };
+
+const exportAppData = () => {
+  const data: Record<string, unknown> = {
+    downloadHistory: JSON.parse(localStorage.getItem(key_downloadHistory) ?? '[]'),
+    sectionDownloadHistory: JSON.parse(localStorage.getItem(key_sectionDownloadHistory) ?? '[]'),
+  };
+  const charaImportUrl = localStorage.getItem(key_charaImportUrl);
+  if (charaImportUrl) data.charaImportUrl = charaImportUrl;
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.download = `ancl-loader-data-${dayjs().format('YYYYMMDD_HHmmss')}.json`;
+  a.href = URL.createObjectURL(blob);
+  a.click();
+};
+
+const importAppData = async (e: Event) => {
+  const input = e.target as HTMLInputElement;
+  if (!input.files?.length) return;
+  const file = input.files[0];
+  const text = await file.text();
+  try {
+    const data = JSON.parse(text);
+    if (Array.isArray(data.downloadHistory)) {
+      localStorage.setItem(key_downloadHistory, JSON.stringify(data.downloadHistory));
+    }
+    if (Array.isArray(data.sectionDownloadHistory)) {
+      localStorage.setItem(key_sectionDownloadHistory, JSON.stringify(data.sectionDownloadHistory));
+    }
+    if (typeof data.charaImportUrl === 'string') {
+      localStorage.setItem(key_charaImportUrl, data.charaImportUrl);
+    }
+    alert('インポートが完了しました。ページをリロードしてください。');
+  } catch (err) {
+    alert(`インポート失敗: ファイル内容が不正です ${err}`);
+  }
+};
 </script>
 
 <template>
@@ -147,6 +187,21 @@ const downloadRadio = async () => {
         <li>敵キャラクターのダウンロード</li>
         <li>ラジオのダウンロード</li>
         <li>画像集（適当）（求情報）</li>
+        <li>
+          <p>アプリデータ（ダウンロード履歴等）のエクスポート/インポート</p>
+          <div class="d-flex align-center gap-2 mt-1">
+            <v-file-input
+              max-width="120"
+              accept="application/json"
+              label="インポート"
+              hide-details
+              density="compact"
+              prepend-icon=""
+              @change="importAppData"
+            />
+            <v-btn @click="exportAppData" color="primary" class="mx-2">エクスポート</v-btn>
+          </div>
+        </li>
       </ul>
     </v-card-text>
   </v-card>
