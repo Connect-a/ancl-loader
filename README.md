@@ -57,5 +57,5 @@ RSSでリリースの通知を受けとることできる。
 - V413のボイスリスト
   - [molab_left.json](src\repository\molab_left.json)
   - https://ancl.jp/img/game/asset/text/molab/molab_left_[シーズンID].json
-    - シーズンID ⇒ 「s45」等
+    - シーズンID ⇒ 「s50」等
     - https://ancl.jp/game/res/breed_season/[id]

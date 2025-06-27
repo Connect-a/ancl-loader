@@ -6,6 +6,7 @@ import vuetify from 'vite-plugin-vuetify';
 import { crx, defineManifest } from '@crxjs/vite-plugin';
 
 const version = process.env.npm_package_version;
+// HACK : 「as never」はcrx/jsの型定義回避のための一時的修正になるかと思われる。
 const manifest = defineManifest({
   name: `エンクリローダー ${version}`,
   description: 'エンジェリックリンクの非公式リソースローダー',
@@ -27,19 +28,20 @@ const manifest = defineManifest({
     '*://ancl-receiver.azurewebsites.net/*',
   ],
   icons: {
-    '16': 'icon.png',
-    '48': 'icon.png',
+    16: 'icon.png' as never,
+    48: 'icon.png' as never,
+    128: 'icon.png' as never
   },
   content_scripts: [
     {
       matches: ['*://ancl.jp/game/pc/start/*'],
-      js: ['src/scripts/contentScripts.ts'],
+      js: ['src/scripts/contentScripts.ts' as never],
       all_frames: true,
     },
   ],
   action: {
-    default_icon: 'icon.png',
-    default_popup: 'index.html',
+    default_icon: 'icon.png' as never,
+    default_popup: 'index.html' as never
   },
   declarative_net_request: {
     rule_resources: [
@@ -73,5 +75,6 @@ export default defineConfig({
       port: 5174,
       clientPort: 5174,
     },
+    cors: true,
   },
 });
