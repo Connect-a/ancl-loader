@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { mdiDownload } from '@mdi/js';
 import { computed, nextTick, reactive } from 'vue';
 import SoundPlayButton from './SoundPlayButton.vue';
 import type { Character } from '@/@types';
@@ -85,24 +86,34 @@ const changeChara = (charaId: string) => {
     class="focusable"
     tabindex="-1"
   >
-    <v-card-title class="d-flex align-center">
-      <v-toolbar flat>
-        <v-toolbar-title>
+    <v-card-title>
+      <v-toolbar>
+        <v-toolbar-title class="d-none d-sm-flex">
           <span
             class="text-cyan text-decoration-underline cursor-pointer"
             @click="emit('clickKeyword', charaDetail.name.split('(')[0] ?? charaDetail.name)"
             >{{ charaDetail.name.split('(')[0] ?? charaDetail.name }}</span
           >
           <span v-if="charaDetail.name.includes('(')">{{ `(${charaDetail.name.split('(')[1]}` }}</span>
-          <span>{{ `：${charaDetail.chara_id}` }}</span></v-toolbar-title
-        >
+          <span>{{ `：${charaDetail.chara_id}` }}</span>
+        </v-toolbar-title>
         <v-spacer />
-        <v-btn @click="emit('clickDownload')" variant="flat" color="primary" class="mx-3" :disabled="props.loadingStatusMessage !== ''">{{
-          props.workingCharaId === charaDetail.chara_id ? props.loadingStatusMessage : 'ダウンロード'
-        }}</v-btn>
-        <v-btn variant="outlined" @click="showPrevCharaDetail">＜＜</v-btn>
-        <v-btn variant="outlined" @click="showNextCharaDetail">＞＞</v-btn>
-        <v-btn variant="outlined" @click="emit('clickEsc')" class="mx-3">ESC</v-btn>
+        <v-btn
+          class="mx-3"
+          @click="emit('clickDownload')"
+          variant="flat"
+          color="primary"
+          :disabled="props.loadingStatusMessage !== ''"
+          title="ダウンロード"
+        >
+          <span class="d-none d-sm-flex">
+            {{ props.workingCharaId === charaDetail.chara_id ? props.loadingStatusMessage : 'ダウンロード' }}
+          </span>
+          <v-icon :icon="mdiDownload" class="d-flex d-sm-none" />
+        </v-btn>
+        <v-btn variant="outlined" @click="showPrevCharaDetail" title="前のキャラ">＜＜</v-btn>
+        <v-btn variant="outlined" @click="showNextCharaDetail" title="次のキャラ">＞＞</v-btn>
+        <v-btn variant="outlined" @click="emit('clickEsc')" title="閉じる" class="mx-3">ESC</v-btn>
       </v-toolbar>
     </v-card-title>
     <v-card-text style="font-size: medium">
@@ -146,6 +157,15 @@ const changeChara = (charaId: string) => {
           <canvas id="standing-picture" v-show="state.showLargeImage" style="width: 100%"></canvas>
         </v-col>
         <v-col :order="state.showLargeImage ? 1 : 2" cols="12" sm="8" :md="state.showLargeImage ? 5 : 3" lg="3">
+          <li class="d-flex d-sm-none">
+            <span
+              class="text-cyan text-decoration-underline cursor-pointer"
+              @click="emit('clickKeyword', charaDetail.name.split('(')[0] ?? charaDetail.name)"
+              >{{ charaDetail.name.split('(')[0] ?? charaDetail.name }}</span
+            >
+            <span v-if="charaDetail.name.includes('(')">{{ `(${charaDetail.name.split('(')[1]}` }}</span>
+            <span>{{ `：${charaDetail.chara_id}` }}</span>
+          </li>
           <ul>
             <li>
               <span class="text-cyan text-decoration-underline cursor-pointer" @click="emit('clickProfileKeyword', charaDetail.battleTypeText)">{{

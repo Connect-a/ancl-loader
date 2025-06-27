@@ -21,7 +21,7 @@ const routeNameMap = new Map<string, string>([
 
 <template>
   <v-app-bar app v-bind="$attrs">
-    <v-app-bar-title class="font-weight-bold">エンクリローダー {{ version }}</v-app-bar-title>
+    <v-app-bar-title class="font-weight-bold d-none d-sm-flex">エンクリローダー {{ version }}</v-app-bar-title>
     <v-spacer></v-spacer>
     <v-menu rounded offset-x offset-y close-on-click>
       <template v-slot:activator="on">

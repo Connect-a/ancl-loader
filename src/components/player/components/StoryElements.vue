@@ -167,10 +167,17 @@ const setResizeObserver = () => {
   const card = getCard();
   if (card) resizeObserver.observe(card);
 };
+
+const resetPosition = () => {
+  state.float = false;
+  state.style.position = 'initial';
+};
 </script>
 
 <template>
-  <div v-show="state.float" style="min-height: 400px"></div>
+  <div v-show="state.float" style="min-height: 400px">
+    <v-btn variant="outlined" class="mb-2" @click="resetPosition">ポジションのリセット</v-btn>
+  </div>
   <v-card
     id="story-card"
     v-show="storySourceFileNames.some((x) => x)"

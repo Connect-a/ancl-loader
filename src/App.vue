@@ -31,7 +31,7 @@ onBeforeUnmount(mainStore.cancelRestore);
   <Suspense>
     <v-app>
       <MainHeader />
-      <v-main style="min-width: 800px">
+      <v-main>
         <v-container v-show="route.name?.toString() !== 'Player' && route.name?.toString() !== 'News' && !mainStore.loaded">
           <v-row>
             <v-col>
