@@ -9,11 +9,15 @@ lerna-debug.log*
 
 node_modules
 .DS_Store
-dist
-dist-main
 dist-ssr
 coverage
 *.local
+
+# WXT
+.output
+.wxt
+stats.html
+stats-*.json
 
 /cypress/videos/
 /cypress/screenshots/
@@ -29,3 +33,16 @@ coverage
 *.sw?
 
 *.tsbuildinfo
+
+# Work directory
+_work/
+
+# direnv (contains personal tokens)
+.envrc
+
+# Claude Code（いったん共有しない）
+.claude/
+CLAUDE.md
+
+# Windows NUL device artifact
+nul

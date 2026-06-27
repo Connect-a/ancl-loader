@@ -1,274 +1,346 @@
 <script setup lang="ts">
-import { reactive } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { browser } from 'wxt/browser';
+import { buildSeitenDungeons, type SeitenDungeon, type SeitenSrc, type Status } from '@/scripts/seiten';
+import { MAX_RARITY } from '@/constants/characterAttributes';
 import { ZipDir } from '@/scripts/zip';
+import { DialogWriter } from '@/repository/download/writer';
+import { homeDirHandle } from '@/scripts/directoryHandleStore';
+import { sendAnclLog } from '@/scripts/anclLog';
 import dayjs from 'dayjs';
-import { downloadCharacter, downloadCharacterSkeleton } from '@/repository/downloadOtherCharacters';
-import chara from '@/repository/characters.json';
-import charaSkeletons from '@/repository/characterSkeletons.json';
-import images from '@/repository/images.json';
+import { storage, type StorageItemKey } from '@wxt-dev/storage';
+import { buildStoryCharactersZip } from '@/repository/download/storyCharacters';
+import { buildEnemiesZip, buildRadioZip } from '@/repository/download/others';
+import chara from '@/repository/data/characters.json';
+import charaSkeletons from '@/repository/data/characterSkeletons.json';
+import images from '@/repository/data/images.json';
+import { charaImage } from '@/repository/assetMap';
 import { useMainStore } from '@/store';
-
-const key_downloadHistory = 'downloadHistory';
-const key_sectionDownloadHistory = 'sectionDownloadHistory';
-const key_charaImportUrl = 'charaImportUrl';
+import { useDownloadHistoryStore } from '@/store/downloadHistoryStore';
+import DownloadButton from '@/components/DownloadButton.vue';
+import { setDownloadMessage } from '@/composables/useDownloadAction';
+const STORAGE_KEYS = {
+  downloadHistory: 'local:downloadHistory',
+  sectionDownloadHistory: 'local:sectionDownloadHistory',
+  charaImportUrl: 'local:charaImportUrl',
+  playerCardStyle: 'local:playerCardStyle',
+  volume: 'local:volume',
+} as const satisfies Record<string, StorageItemKey>;
 
 const mainStore = useMainStore();
-
-const state = reactive({
-  loadStatusMessage: '',
-  workingId: '',
-});
+const downloadHistoryStore = useDownloadHistoryStore();
 
 const characters = (chara as Array<{ id: string; name: string }>)
   .concat(charaSkeletons as Array<{ id: string; name: string }>)
   .sort((a, b) => a.id.localeCompare(b.id));
 
 const downloadCharacters = async () => {
-  state.loadStatusMessage = '開始中…';
-  state.workingId = 'characters';
-
   const zip = new ZipDir('キャラクター');
-
-  // 基本
-  state.loadStatusMessage = '基本情報のダウンロード中…';
-  const createCanvas = () => document.createElement('canvas');
-  await downloadCharacter(zip, createCanvas);
-  await downloadCharacterSkeleton(zip);
-
-  // zipアーカイブ
-  state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
-  const blob = await zip.end();
-
-  state.loadStatusMessage = 'リンク生成中…';
-  const a = document.createElement('a');
-  a.download = 'エンクリ_ストーリーキャラクター.zip';
-  a.href = URL.createObjectURL(blob);
-  a.click();
-
-  state.loadStatusMessage = '';
-  state.workingId = '';
+  setDownloadMessage('基本情報のダウンロード中…');
+  await buildStoryCharactersZip(zip);
+  setDownloadMessage('リンク生成中…');
+  await new DialogWriter().save(zip, null, 'エンクリ_ストーリーキャラクター.zip');
 };
 
 const downloadEnemies = async () => {
-  const tasks = new Array<Promise<unknown>>();
-  state.loadStatusMessage = '開始中…';
-  state.workingId = 'enemies';
-
+  if (!mainStore.enemy) throw new Error('【例外】エネミーの取得失敗した。');
   const zip = new ZipDir('エネミー');
-
-  if (!mainStore.enemy) {
-    state.loadStatusMessage = '【例外】エネミーの取得失敗した。';
-    throw '【例外】エネミーの取得失敗した。';
-  }
-
-  for (const enemy of Object.values(mainStore.enemy)) {
-    const enemyDir = zip.folder(`${enemy.section_id}_${enemy.name}`);
-    tasks.push(enemyDir?.fileAsync('meta.json', JSON.stringify(enemy)));
-    const imageDir = enemyDir.folder('image');
-    tasks.push(imageDir.fileFromUrlAsync('icon.png', `https://ancl.jp/img/game/monster/${enemy.img}/graphic/${enemy.img}_icon.png`));
-    tasks.push(imageDir.fileFromUrlAsync('pc.png', `https://ancl.jp/img/game/monster/${enemy.img}/graphic/${enemy.img}_pc.png`));
-    tasks.push(imageDir.fileFromUrlAsync('ok.png', `https://ancl.jp/img/game/monster/${enemy.img}/graphic/${enemy.img}_ok.png`));
-    const skeletonDir = enemyDir.folder('skeleton');
-    tasks.push(skeletonDir.fileFromUrlAsync('skeleton.json', `https://ancl.jp/img/game/monster/${enemy.img}/spine/skeleton.json`));
-    tasks.push(skeletonDir.fileFromUrlAsync('skeleton.png', `https://ancl.jp/img/game/monster/${enemy.img}/spine/skeleton.png`));
-    tasks.push(skeletonDir.fileFromUrlAsync('skeleton.atlas', `https://ancl.jp/img/game/monster/${enemy.img}/spine/skeleton.atlas`));
-  }
-
-  await Promise.all(tasks);
-  // zipアーカイブ
-  state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
-  const blob = await zip.end();
-
-  state.loadStatusMessage = 'リンク生成中…';
-  const a = document.createElement('a');
-  a.download = `エンクリ_エネミー_${dayjs().format('YYYYMMDD')}.zip`;
-  a.href = URL.createObjectURL(blob);
-  a.click();
-
-  state.loadStatusMessage = '';
-  state.workingId = '';
+  await buildEnemiesZip(zip, mainStore.enemy);
+  setDownloadMessage('リンク生成中…');
+  await new DialogWriter().save(zip, null, `エンクリ_エネミー_${dayjs().format('YYYYMMDD')}.zip`);
 };
 
 const downloadRadio = async () => {
-  const tasks = new Array<Promise<unknown>>();
-  state.loadStatusMessage = '開始中…';
-  state.workingId = 'radio';
-
+  if (!mainStore.radio) throw new Error('【例外】ラジオの取得失敗した。');
   const zip = new ZipDir('ラジオ');
-
-  if (!mainStore.radio) {
-    state.loadStatusMessage = '【例外】ラジオの取得失敗した。';
-    throw '【例外】ラジオの取得失敗した。';
-  }
-
-  // 番組表取得
-  const getHashCode = (ee: object) => Array.from(ee ? JSON.stringify(ee) : '').reduce((e, t) => ((e << 5) - e + t.charCodeAt(0)) | 0, 0);
-  const query = `?h=${new Date().getTime()}${getHashCode(mainStore.radio.radio_guide)}`;
-  tasks.push(zip.fileFromUrlAsync('_番組表.jpg', `https://ancl.jp/img/game/asset/radio/list.jpg${query}`));
-
-  const radioLoggingTasks = new Array<Promise<Response>>();
-  for (const guide of Object.values(mainStore.radio.radio_guide)) {
-    for (const x of guide.list) {
-      const name = `${guide.start.replace(':', '')}_${guide.name}_${x}`;
-      tasks.push(zip.fileFromUrlAsync(`${name}.m4a`, `https://ancl.jp/img/game/asset/radio/pg/${x}.m4a`));
-      radioLoggingTasks.push(
-        fetch(
-          `https://ancl-receiver.azurewebsites.net/api/ancl_loader?j=${encodeURIComponent(`radio_${name}_${query.split('=')[1]}`)}?code=NYaFk80zhl5aa/acKxu96/LIXtutkeTC/he7XG8fS73GidPwKpZzQw==`,
-          {
-            method: 'GET',
-            mode: 'no-cors',
-            cache: 'no-cache',
-            credentials: 'same-origin',
-          },
-        ),
-      );
-    }
-  }
-
-  await Promise.all(tasks);
-  // zipアーカイブ
-  state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
-  const blob = await zip.end();
-
-  state.loadStatusMessage = 'リンク生成中…';
-  const a = document.createElement('a');
-  a.download = `エンクリ_ラジオ_${dayjs().format('YYYYMMDD')}.zip`;
-  a.href = URL.createObjectURL(blob);
-  a.click();
-
-  await Promise.all(radioLoggingTasks);
-  state.loadStatusMessage = '';
-  state.workingId = '';
+  const logPayloads = await buildRadioZip(zip, mainStore.radio);
+  setDownloadMessage('リンク生成中…');
+  await new DialogWriter().save(zip, null, `エンクリ_ラジオ_${dayjs().format('YYYYMMDD')}.zip`);
+  void sendAnclLog(logPayloads);
 };
 
-const exportAppData = () => {
+const exportAppData = async () => {
+  const entries = await storage.getItems(Object.values(STORAGE_KEYS));
+  const v = new Map(entries.map((e) => [e.key, e.value]));
+
   const data: Record<string, unknown> = {
-    downloadHistory: JSON.parse(localStorage.getItem(key_downloadHistory) ?? '[]'),
-    sectionDownloadHistory: JSON.parse(localStorage.getItem(key_sectionDownloadHistory) ?? '[]'),
+    downloadHistory: v.get(STORAGE_KEYS.downloadHistory) ?? [],
+    sectionDownloadHistory: v.get(STORAGE_KEYS.sectionDownloadHistory) ?? [],
   };
-  const charaImportUrl = localStorage.getItem(key_charaImportUrl);
-  if (charaImportUrl) data.charaImportUrl = charaImportUrl;
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  if (v.get(STORAGE_KEYS.charaImportUrl)) {
+    data.charaImportUrl = v.get(STORAGE_KEYS.charaImportUrl);
+  }
+  if (v.get(STORAGE_KEYS.playerCardStyle)) {
+    data.playerCardStyle = v.get(STORAGE_KEYS.playerCardStyle);
+  }
+  if (v.get(STORAGE_KEYS.volume) != null) {
+    data.volume = v.get(STORAGE_KEYS.volume);
+  }
+
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   const a = document.createElement('a');
   a.download = `ancl-loader-data-${dayjs().format('YYYYMMDD_HHmmss')}.json`;
   a.href = URL.createObjectURL(blob);
   a.click();
+  URL.revokeObjectURL(a.href);
 };
 
 const importAppData = async (e: Event) => {
   const input = e.target as HTMLInputElement;
   if (!input.files?.length) return;
-  const file = input.files[0];
+  const file = input.files[0]!;
   const text = await file.text();
   try {
     const data = JSON.parse(text);
+    const toSave: Array<{ key: StorageItemKey; value: unknown }> = [];
+
     if (Array.isArray(data.downloadHistory)) {
-      localStorage.setItem(key_downloadHistory, JSON.stringify(data.downloadHistory));
+      toSave.push({ key: STORAGE_KEYS.downloadHistory, value: data.downloadHistory });
     }
     if (Array.isArray(data.sectionDownloadHistory)) {
-      localStorage.setItem(key_sectionDownloadHistory, JSON.stringify(data.sectionDownloadHistory));
+      toSave.push({ key: STORAGE_KEYS.sectionDownloadHistory, value: data.sectionDownloadHistory });
     }
     if (typeof data.charaImportUrl === 'string') {
-      localStorage.setItem(key_charaImportUrl, data.charaImportUrl);
+      toSave.push({ key: STORAGE_KEYS.charaImportUrl, value: data.charaImportUrl });
     }
+    if (data.playerCardStyle != null && typeof data.playerCardStyle === 'object') {
+      toSave.push({ key: STORAGE_KEYS.playerCardStyle, value: data.playerCardStyle });
+    }
+    if (typeof data.volume === 'number') {
+      toSave.push({ key: STORAGE_KEYS.volume, value: data.volume });
+    }
+
+    await storage.setItems(toSave);
+
+    await downloadHistoryStore.init();
+
     alert('インポートが完了しました。ページをリロードしてください。');
-  } catch (err) {
-    alert(`インポート失敗: ファイル内容が不正です ${err}`);
+  } catch (err: unknown) {
+    alert(`インポート失敗: ファイル内容が不正です ${err instanceof Error ? err.message : String(err)}`);
   }
+};
+
+const fmtMB = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+
+const storageUsage = ref<{ local: number; session: number; indexedDb: number } | null>(null);
+onMounted(async () => {
+  const local = await browser.storage.local.getBytesInUse(null);
+  let session = 0;
+  try {
+    session = await browser.storage.session.getBytesInUse(null);
+  } catch {
+    /* session.getBytesInUse 未対応環境 */
+  }
+  const est = (await navigator.storage?.estimate?.()) ?? {};
+  storageUsage.value = { local, session, indexedDb: est.usage ?? 0 };
+});
+
+const clearAllData = async () => {
+  if (!confirm('拡張機能のデータをリセットします（元に戻すことはできません）\n・キャッシュ\n・ダウンロード履歴\n・設定')) return;
+  await browser.storage.local.clear();
+  await browser.storage.session.clear();
+  await homeDirHandle.clear();
+  try {
+    localStorage.clear();
+  } catch {
+    /* 移行済みの旧DOM localStorage */
+  }
+  alert('全データを削除しました。リロードします。');
+  location.reload();
+};
+
+const nowSec = Math.floor(Date.now() / 1000); // セッション内で固定
+
+const seitenReady = computed(() => !!(mainStore.battleMain && mainStore.characters && mainStore.initData));
+
+const seitenDungeons = computed<Array<SeitenDungeon>>(() => {
+  const charaData = mainStore.characters?.chara_data;
+  const player = mainStore.initData?.result.player_data.chara;
+  if (!charaData || !player) return [];
+  return buildSeitenDungeons({
+    battleMain: mainStore.battleMain,
+    battleEvent: mainStore.battleEvent,
+    battleLimited: mainStore.battleLimited,
+    eventInfo: mainStore.event,
+    charaData,
+    player,
+    ownedSeiten: mainStore.initData?.result.player_data.items_awake ?? {},
+    nowSec,
+  });
+});
+
+const SRC_LABEL: Record<SeitenSrc, string> = { main: 'メイン', event: 'イベント', limited: '外伝/限定' };
+const STATUS_CHIP: Partial<Record<Status, { label: string; color: string }>> = {
+  open: { label: '開催中', color: 'success' },
+  upcoming: { label: '予定', color: 'info' },
+};
+const star = (n: number) => '★'.repeat(n) + '☆'.repeat(Math.max(0, MAX_RARITY - n));
+const fmtDate = (ts: number) => {
+  const d = new Date(ts * 1000);
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 };
 </script>
 
 <template>
-  <v-card>
-    <v-card-title primary-title>機能</v-card-title>
-    <v-card-text>
-      <ul>
-        <li>ストーリーキャラクターのダウンロード</li>
-        <li>敵キャラクターのダウンロード</li>
-        <li>ラジオのダウンロード</li>
-        <li>画像集（適当）（求情報）</li>
-        <li>
-          <p>アプリデータ（ダウンロード履歴等）のエクスポート/インポート</p>
-          <div class="d-flex align-center gap-2 mt-1">
-            <v-file-input
-              max-width="120"
-              accept="application/json"
-              label="インポート"
-              hide-details
-              density="compact"
-              prepend-icon=""
-              @change="importAppData"
-            />
-            <v-btn @click="exportAppData" color="primary" class="mx-2">エクスポート</v-btn>
-          </div>
-        </li>
-      </ul>
-    </v-card-text>
-  </v-card>
-  <!-- リスト -->
-  <v-list>
-    <v-list-item title="ストーリーキャラ">
-      <template v-slot:prepend>
-        <v-avatar size="100" rounded="sm">
-          <v-img src="https://ancl.jp/img/game/chara/N01JIW/graphic/N01JIW_ss.png" alt="ストーリーキャラ" />
-        </v-avatar>
-      </template>
-      <v-list-item-subtitle>
-        <ul>
-          <li v-for="c of characters" :key="c.id">{{ c.id }}：{{ c.name }}</li>
-        </ul>
-      </v-list-item-subtitle>
-      <template v-slot:append>
-        <v-btn @click="downloadCharacters" color="success" :disabled="state.loadStatusMessage !== ''">{{
-          state.workingId === 'characters' ? state.loadStatusMessage : 'ダウンロード'
-        }}</v-btn>
-      </template>
-    </v-list-item>
+  <v-container>
+    <v-row>
+      <v-col>
+        <v-card>
+          <v-card-title primary-title>機能</v-card-title>
+          <v-card-text>
+            <ul>
+              <li>ストーリーキャラクターのダウンロード</li>
+              <li>敵キャラクターのダウンロード</li>
+              <li>ラジオのダウンロード</li>
+              <li>画像集（適当）（求情報）</li>
+              <li>
+                <p>アプリデータ（ダウンロード履歴等）のエクスポート/インポート</p>
+                <div class="d-flex align-center gap-2 mt-1">
+                  <v-file-input
+                    max-width="120"
+                    accept="application/json"
+                    label="インポート"
+                    hide-details
+                    density="compact"
+                    prepend-icon=""
+                    @change="importAppData"
+                  />
+                  <v-btn @click="exportAppData" color="primary" class="mx-2">エクスポート</v-btn>
+                </div>
+              </li>
+              <li class="mt-2">
+                <p>拡張機能のストレージ</p>
+                <div v-if="storageUsage" class="text-body-2">
+                  <div>storage.local: {{ fmtMB(storageUsage.local) }}</div>
+                  <div>storage.session: {{ fmtMB(storageUsage.session) }}</div>
+                  <div>IndexedDB等: {{ fmtMB(storageUsage.indexedDb) }}</div>
+                </div>
+                <v-btn @click="clearAllData" color="error" variant="outlined" size="small" class="mt-1">全データ削除</v-btn>
+              </li>
+            </ul>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
 
-    <v-list-item title="エネミー">
-      <template v-slot:prepend>
-        <v-avatar size="100" rounded="sm">
-          <v-img src="https://ancl.jp/img/game/monster/W001QZ/graphic/W001QZ_icon.png" alt="エネミー" />
-        </v-avatar>
-      </template>
+    <v-row>
+      <v-col>
+        <v-card>
+          <v-card-title>📜 聖典サーチ</v-card-title>
+          <v-card-text>
+            <v-alert v-if="!seitenReady" type="info" variant="tonal" density="compact">
+              ゲームデータが未取得です。先にキャラ・バトルデータを取得してください（バトルデータ: battle_main / battle_event）。
+            </v-alert>
+            <v-alert v-if="seitenReady && !seitenDungeons.length" type="success" variant="tonal" density="compact">
+              今取得できる聖典ステージのあるダンジョンはありません（対象キャラが全員カンスト、または取得先が終了済み）。
+            </v-alert>
 
-      <template v-slot:append>
-        <v-btn @click="downloadEnemies" color="success" :disabled="state.loadStatusMessage !== ''">{{
-          state.workingId === 'enemies' ? state.loadStatusMessage : 'ダウンロード'
-        }}</v-btn>
-      </template>
-    </v-list-item>
+            <template v-if="seitenReady && seitenDungeons.length">
+              <v-expansion-panels variant="accordion" multiple>
+                <v-expansion-panel v-for="d in seitenDungeons" :key="d.key">
+                  <v-expansion-panel-title>
+                    <div class="d-flex align-center ga-2 flex-wrap">
+                      <v-chip size="x-small" variant="tonal">{{ SRC_LABEL[d.src] }}</v-chip>
+                      <v-chip v-if="STATUS_CHIP[d.status]" :color="STATUS_CHIP[d.status]!.color" size="x-small" variant="flat">
+                        {{ STATUS_CHIP[d.status]!.label }}
+                      </v-chip>
+                      <span class="font-weight-medium">{{ d.groupName }}</span>
+                      <v-chip v-if="d.deadline" color="warning" size="x-small" variant="flat" title="取得期限">〜{{ fmtDate(d.deadline) }}</v-chip>
+                      <span class="text-caption text-medium-emphasis">{{ d.charas.length }} キャラ</span>
+                    </div>
+                  </v-expansion-panel-title>
+                  <v-expansion-panel-text>
+                    <div v-for="c in d.charas" :key="c.charaId" class="mb-2">
+                      <div class="d-flex align-center ga-2">
+                        <span class="text-body-2 font-weight-medium">{{ c.name }}</span>
+                        <span v-if="c.unlocked" class="text-amber" :title="`現レアリティ ${c.rarity} / ${MAX_RARITY}`">{{ star(c.rarity) }}</span>
+                        <v-chip v-if="!c.unlocked" color="purple" size="x-small" variant="flat">未開放</v-chip>
+                        <v-chip
+                          size="x-small"
+                          variant="tonal"
+                          :title="c.unlocked ? `聖典の所持数 / 次の覚醒に必要 ${c.need}` : `聖典の所持数 / 開放に必要 ${c.need}`"
+                        >
+                          聖典 {{ c.owned }} / {{ c.need }}
+                        </v-chip>
+                        <v-chip v-if="c.need && c.owned >= c.need" color="success" size="x-small" variant="flat">{{
+                          c.unlocked ? '覚醒可' : '開放可'
+                        }}</v-chip>
+                      </div>
+                      <div class="text-caption text-medium-emphasis ml-3">
+                        <span v-for="(s, i) in c.stages" :key="i">{{ i ? ' / ' : '' }}{{ s }}</span>
+                      </div>
+                    </div>
+                  </v-expansion-panel-text>
+                </v-expansion-panel>
+              </v-expansion-panels>
+            </template>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
 
-    <v-list-item title="ラジオ">
-      <template v-slot:prepend>
-        <v-avatar size="100" rounded="sm">
-          <v-img
-            src="https://ancl.jp/game/client/pc/assets/resources/native/d9/d9506b81-d0a5-48c6-89cc-44e0638a17b9.78a49.png"
-            alt="番組表＆ラジオ"
-          />
-        </v-avatar>
-      </template>
-      <v-list-item-subtitle> 番組表＆ラジオ </v-list-item-subtitle>
-      <template v-slot:append>
-        <v-btn @click="downloadRadio" color="success" :disabled="state.loadStatusMessage !== ''">{{
-          state.workingId === 'radio' ? state.loadStatusMessage : 'ダウンロード'
-        }}</v-btn>
-      </template>
-    </v-list-item>
+    <v-row dense>
+      <v-col>
+        <v-list>
+          <v-list-item title="ストーリーキャラ">
+            <template v-slot:prepend>
+              <v-avatar size="100" rounded="sm">
+                <v-img :src="charaImage.webUrlOf('N01JIW', 'ss.png')" alt="ストーリーキャラ" />
+              </v-avatar>
+            </template>
+            <v-list-item-subtitle>
+              <ul>
+                <li v-for="c of characters" :key="c.id">{{ c.id }}：{{ c.name }}</li>
+              </ul>
+            </v-list-item-subtitle>
+            <template v-slot:append>
+              <DownloadButton id="characters" :task="downloadCharacters" />
+            </template>
+          </v-list-item>
 
-    <v-list-item title="画像集">
-      <template v-slot:prepend>
-        <v-avatar size="100" rounded="sm">
-          <v-img src="https://ancl.jp/img/game/chara/N01JIW/graphic/N01JIW_sd_23.png" alt="画像集" />
-        </v-avatar>
-      </template>
-      <v-list-item-subtitle>
-        <ul>
-          <li v-for="i of images" :key="i.name">
-            <a :href="i.url" target="_brank">{{ i.name }}</a>
-          </li>
-        </ul>
-      </v-list-item-subtitle>
-    </v-list-item>
-  </v-list>
+          <v-list-item title="エネミー">
+            <template v-slot:prepend>
+              <v-avatar size="100" rounded="sm">
+                <v-img src="https://ancl.jp/img/game/monster/W001QZ/graphic/W001QZ_icon.png" alt="エネミー" />
+              </v-avatar>
+            </template>
+
+            <template v-slot:append>
+              <DownloadButton id="enemies" :task="downloadEnemies" />
+            </template>
+          </v-list-item>
+
+          <v-list-item title="ラジオ">
+            <template v-slot:prepend>
+              <v-avatar size="100" rounded="sm">
+                <v-img
+                  src="https://ancl.jp/game/client/pc/assets/resources/native/d9/d9506b81-d0a5-48c6-89cc-44e0638a17b9.78a49.png"
+                  alt="番組表＆ラジオ"
+                />
+              </v-avatar>
+            </template>
+            <v-list-item-subtitle> 番組表＆ラジオ </v-list-item-subtitle>
+            <template v-slot:append>
+              <DownloadButton id="radio" :task="downloadRadio" />
+            </template>
+          </v-list-item>
+
+          <v-list-item title="画像集">
+            <template v-slot:prepend>
+              <v-avatar size="100" rounded="sm">
+                <v-img :src="charaImage.webUrlOf('N01JIW', 'sd_23.png')" alt="画像集" />
+              </v-avatar>
+            </template>
+            <v-list-item-subtitle>
+              <ul>
+                <li v-for="i of images" :key="i.name">
+                  <a :href="i.url" target="_blank">{{ i.name }}</a>
+                </li>
+              </ul>
+            </v-list-item-subtitle>
+          </v-list-item>
+        </v-list>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>

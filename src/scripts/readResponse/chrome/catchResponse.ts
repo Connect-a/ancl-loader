@@ -1,5 +1,7 @@
-import { storage, webNavigation, type WebNavigation } from 'webextension-polyfill';
-import { decode } from '@msgpack/msgpack';
+import { browser, type Browser } from 'wxt/browser';
+import { encodeBase64Msgpack } from '@/utils/msgpack';
+import { storage } from '@wxt-dev/storage';
+import type { AnclDataField } from '@/scripts/anclData';
 const MSGPACK_TYPE = 'application/x-msgpack';
 const HEADER_CONTENT_TYPE = 'Content-Type';
 
@@ -13,6 +15,55 @@ type ReqRespData = {
 
 const _requests = new Map<string, ReqRespData>();
 const _responses = new Map<string, ReqRespData>();
+// responseReceived〜loadingFinished/Failedの間のrequestId→フィールド。UIの「読み込み中」表示用。
+const _capturingByRequest = new Map<string, AnclDataField>();
+
+const URL_V1 = '/game/api/v1';
+const URL_INDEX_JS = '/main/index';
+const URL_CHARACTER = '/game/res/chara';
+const URL_STORY = '/game/res/story';
+const URL_ENEMY = '/game/res/enemy_section';
+const URL_EVENT = '/game/res/event';
+const URL_BATTLE_EVENT = '/game/res/battle_event';
+const URL_BATTLE_MAIN = '/game/res/battle_main';
+const URL_BATTLE_LIMITED = '/game/res/battle_limited';
+const URL_RADIO = '/game/res/radio';
+const URL_VOICE = '/game/res/voice';
+const URL_BREED_SEASON = '/game/res/breed_season';
+
+const TARGET_URLS = [
+  URL_V1,
+  URL_INDEX_JS,
+  URL_CHARACTER,
+  URL_STORY,
+  URL_ENEMY,
+  URL_EVENT,
+  URL_BATTLE_EVENT,
+  URL_BATTLE_MAIN,
+  URL_BATTLE_LIMITED,
+  URL_RADIO,
+  URL_VOICE,
+  URL_BREED_SEASON,
+];
+
+// tokenはcontent script由来、specificVoiceはindex JS由来のため対象外。
+const urlToField = (url: string, reqHeaders: Record<string, string>): AnclDataField | null => {
+  if (url.includes(URL_CHARACTER)) return 'characters';
+  if (url.includes(URL_STORY)) return 'stories';
+  if (url.includes(URL_ENEMY)) return 'enemy';
+  if (url.includes(URL_BATTLE_EVENT)) return 'battleEvent';
+  if (url.includes(URL_BATTLE_MAIN)) return 'battleMain';
+  if (url.includes(URL_BATTLE_LIMITED)) return 'battleLimited';
+  if (url.includes(URL_EVENT)) return 'event';
+  if (url.includes(URL_RADIO)) return 'radio';
+  if (url.includes(URL_VOICE)) return 'voice';
+  const xClass = reqHeaders['x-class'] ?? reqHeaders['X-Class'];
+  const xFunc = reqHeaders['x-func'] ?? reqHeaders['X-Func'];
+  if (url.includes(URL_V1) && xClass === 'Player' && xFunc === 'getInitData') return 'initData';
+  return null;
+};
+
+const publishCapturing = () => storage.setItem('session:capturing', [...new Set(_capturingByRequest.values())]);
 
 const handleNetworkLoadingFinished = async (source: chrome.debugger.Debuggee, requestId: string) => {
   const req = _requests.get(requestId);
@@ -21,26 +72,10 @@ const handleNetworkLoadingFinished = async (source: chrome.debugger.Debuggee, re
   if (!resp) return;
   const url = resp.url;
 
-  // NOTE: MessagePack or JSON or HTMLの通信について監視
-  const contentType: string = resp.headers[HEADER_CONTENT_TYPE] || resp.headers[HEADER_CONTENT_TYPE.toLowerCase()];
+  const contentType = resp.headers[HEADER_CONTENT_TYPE] || resp.headers[HEADER_CONTENT_TYPE.toLowerCase()] || '';
   const isMsgpack = contentType?.toLowerCase().startsWith(MSGPACK_TYPE);
-  // const isJson = contentType?.toLowerCase().startsWith(JSON_TYPE);
-  // const isHtml = contentType?.toLowerCase().startsWith(HTML_TYPE);
 
-  const url_v1 = '/game/api/v1';
-  const url_indexJs = '/main/index';
-  const url_character = '/game/res/chara';
-  const url_story = '/game/res/story';
-  const url_enemy = '/game/res/enemy_section';
-  const url_event = '/game/res/event';
-  const url_battleEvent = '/game/res/battle_event';
-  const url_radio = '/game/res/radio';
-  const url_voice = '/game/res/voice';
-  const url_breed_season = '/game/res/breed_season';
-  // const url_breed_monster = '/game/res/breed_monster';
-  const targetUrl = [url_v1, url_indexJs, url_character, url_story, url_enemy, url_event, url_battleEvent, url_radio, url_voice, url_breed_season];
-
-  if (!targetUrl.find((x) => url.includes(x))) return;
+  if (!TARGET_URLS.some((x) => url.includes(x))) return;
 
   const response = await chrome.debugger.sendCommand(source, 'Network.getResponseBody', {
     requestId,
@@ -48,40 +83,41 @@ const handleNetworkLoadingFinished = async (source: chrome.debugger.Debuggee, re
 
   if (!response) return;
   if (!('body' in response)) return;
+  const base64Encoded = 'base64Encoded' in response && response.base64Encoded;
 
   if (isMsgpack) {
-    const decodedResponse = decode(Uint8Array.from((response.body as string).split('').map((c) => c.charCodeAt(0))));
-    // console.log(url, decodedResponse);
-
-    if (url.includes(url_character)) await storage.local.set({ characters: decodedResponse });
-    if (url.includes(url_story)) await storage.local.set({ stories: decodedResponse });
-    if (url.includes(url_enemy)) await storage.local.set({ enemy: decodedResponse });
-    if (url.includes(url_battleEvent)) await storage.local.set({ battleEvent: decodedResponse });
-    if (url.includes(url_radio)) await storage.local.set({ radio: decodedResponse });
-    if (url.includes(url_voice)) await storage.local.set({ voice: decodedResponse });
-
-    //
-    const xClass = req.headers['x-class'] ?? req.headers['X-Class'];
-    const xFlass = req.headers['x-func'] || req.headers['X-Func'];
-    if (xClass === 'Player' && xFlass === 'getInitData') {
-      await storage.local.set({ initData: decodedResponse });
+    if (base64Encoded) {
+      throw new Error(`ancl: [CDP] base64Encoded=trueは未対応（サーバーのcharset変更？）URL: ${url}`);
     }
+
+    // オブジェクトで保存するとシリアライズ・コピーが複数回発生するため文字列で扱う。
+    // 読み込みの高速化を優先し、x-user-definedからネイティブ実装の可能性が高いBase64でエンコードして保存する。
+    const body = response.body as string;
+    const bytes = Uint8Array.from(body, (c) => c.charCodeAt(0) & 0xff);
+    const base64 = bytes.toBase64();
+
+    const field = urlToField(url, req.headers);
+    if (field) await storage.setItem(`local:${field}`, base64);
 
     return;
   }
 
-  if (url.includes(url_indexJs)) {
-    // ボイスの抜き出し
+  if (url.includes(URL_INDEX_JS)) {
     const match = (response.body as string).matchAll(
       /chara_id:"(?<chara_id>[^"]*)",chara_name:"[^"]*",voice_id:"(?<voice_id>[^"]*)",text:"(?<text>[^"]*)"/gm,
     );
-    const voiceSet = Array.from(match).map((m) => ({
-      chara_id: m.groups?.chara_id ?? '',
-      voice_id: m.groups?.voice_id ?? '',
-      text: JSON.parse(`"${m.groups?.text ?? ''}"`),
-    }));
+    const voiceSet = match
+      .map((m) => ({
+        chara_id: m.groups?.chara_id ?? '',
+        voice_id: m.groups?.voice_id ?? '',
+        text: JSON.parse(`"${m.groups?.text ?? ''}"`),
+      }))
+      .toArray();
 
-    await storage.local.set({ specificVoice: voiceSet });
+    // キャッシュや形式変化で0件のとき既存のspecificVoiceを壊さないよう、非空時だけ更新する。
+    if (voiceSet.length > 0) {
+      await storage.setItem('local:specificVoice', encodeBase64Msgpack(voiceSet));
+    }
   }
 };
 
@@ -118,10 +154,26 @@ const handleDebuggerEvent = async (source: chrome.debugger.Debuggee, method: str
     case 'Network.responseReceived':
       if (!param?.response) return;
       _responses.set(param?.requestId, param.response);
+      {
+        const field = urlToField(param.response.url, _requests.get(param.requestId)?.headers ?? {});
+        if (field) {
+          _capturingByRequest.set(param.requestId, field);
+          await publishCapturing();
+        }
+      }
       break;
 
     case 'Network.loadingFinished':
       await handleNetworkLoadingFinished(source, param.requestId);
+      _requests.delete(param.requestId);
+      _responses.delete(param.requestId);
+      if (_capturingByRequest.delete(param.requestId)) await publishCapturing();
+      break;
+
+    case 'Network.loadingFailed':
+      _requests.delete(param.requestId);
+      _responses.delete(param.requestId);
+      if (_capturingByRequest.delete(param.requestId)) await publishCapturing();
       break;
 
     default:
@@ -129,7 +181,7 @@ const handleDebuggerEvent = async (source: chrome.debugger.Debuggee, method: str
   }
 };
 
-const handleWebNavigationOnCommitted = async (d: WebNavigation.OnCommittedDetailsType) => {
+const handleWebNavigationOnCommitted = async (d: Browser.webNavigation.WebNavigationTransitionCallbackDetails) => {
   const deb: chrome.debugger.Debuggee = { tabId: d.tabId };
   const targets = await chrome.debugger.getTargets();
   if (targets.some((x) => x.tabId === d.tabId && x.attached)) {
@@ -152,8 +204,8 @@ const handleWebNavigationOnCommitted = async (d: WebNavigation.OnCommittedDetail
 export const setUpChrome = async () => {
   if (!chrome?.debugger) return;
 
-  webNavigation.onCommitted.removeListener(handleWebNavigationOnCommitted);
-  webNavigation.onCommitted.addListener(handleWebNavigationOnCommitted, {
+  browser.webNavigation.onCommitted.removeListener(handleWebNavigationOnCommitted);
+  browser.webNavigation.onCommitted.addListener(handleWebNavigationOnCommitted, {
     url: [{ urlContains: 'play.games.dmm.co.jp/game/angelicr' }, { urlContains: 'play.games.dmm.com/game/angelic' }],
   });
   chrome.debugger.onEvent.removeListener(handleDebuggerEvent);
@@ -167,11 +219,15 @@ export const detachAll = async () => {
     try {
       await chrome.debugger.detach({ targetId: t.id });
     } catch {
-      // console.log('already detached.', t);
+      /* already detached */
     }
   }
 
   chrome.debugger.onEvent.removeListener(handleDebuggerEvent);
-  webNavigation.onCommitted.removeListener(handleWebNavigationOnCommitted);
-  await storage.local.set({ isAwaitGameData: false });
+  browser.webNavigation.onCommitted.removeListener(handleWebNavigationOnCommitted);
+  _requests.clear();
+  _responses.clear();
+  _capturingByRequest.clear();
+  await storage.setItem('session:capturing', []);
+  await storage.setItem('local:isAwaitGameData', false);
 };

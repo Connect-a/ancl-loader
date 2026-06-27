@@ -1,118 +1,80 @@
 <script setup lang="ts">
-import { mdiDownload } from '@mdi/js';
-import { computed, nextTick, reactive } from 'vue';
+import { mdiMagnifyPlusOutline } from '@mdi/js';
+import { computed, reactive } from 'vue';
+import CharaBattleAttributes from './CharaBattleAttributes.vue';
+import CharaStatusChips from './CharaStatusChips.vue';
 import SoundPlayButton from './SoundPlayButton.vue';
-import type { Character } from '@/@types';
-
-type Chara = Character & { acquired: boolean; battleTypeText: string };
+import DownloadButton from '@/components/DownloadButton.vue';
+import { setDownloadMessage } from '@/composables/useDownloadAction';
+import { statModeLabels, type CharaListItem, type StatMode } from '@/constants/characterAttributes';
+import { charaImage } from '@/repository/assetMap';
+import { downloadCharacter } from '@/repository/download';
 
 const props = defineProps<{
-  items: Array<Chara>;
+  items: Array<CharaListItem>;
   targetId: string;
-  loadingStatusMessage: string;
-  workingCharaId: string;
+  prevCharaId: string | null;
+  nextCharaId: string | null;
 }>();
+
+const statMode = defineModel<StatMode>('statMode', { required: true });
 
 const state = reactive({
   showLargeImage: false,
   selectedFaceImageSuffix: 'st_01.png',
-  standingPicture: new Map<string, ImageBitmap>(),
 });
 
-const emit = defineEmits(['clickEsc', 'clickProfileKeyword', 'clickKeyword', 'clickDownload', 'changeTargetId']);
+const emit = defineEmits(['clickEsc', 'clickProfileKeyword', 'clickKeyword', 'changeTargetId']);
 
-const charaDetail = computed(() => props.items.find((x) => x.chara_id === props.targetId) ?? ({ profile: {} } as Chara));
+const charaDetail = computed(() => props.items.find((x) => x.chara_id === props.targetId) ?? ({ profile: {}, sortTarget: {} } as CharaListItem));
 
-const changeStandingPicture = async () => {
-  const canvas = document.getElementById('standing-picture') as HTMLCanvasElement;
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  const baseImageSuffix = `st_99.png`;
-  let standinbPictureBase = state.standingPicture.get(baseImageSuffix);
-  if (!standinbPictureBase) {
-    const res = await fetch(`https://ancl.jp/img/game/chara/${props.targetId}/graphic/${props.targetId}_${baseImageSuffix}`);
-    standinbPictureBase = await createImageBitmap(await res.blob());
-    state.standingPicture.set(baseImageSuffix, standinbPictureBase);
-  }
-  let facePicture = state.standingPicture.get(state.selectedFaceImageSuffix);
-  if (!facePicture) {
-    const res = await fetch(`https://ancl.jp/img/game/chara/${props.targetId}/graphic/${props.targetId}_${state.selectedFaceImageSuffix}`);
-    facePicture = await createImageBitmap(await res.blob());
-    state.standingPicture.set(state.selectedFaceImageSuffix, facePicture);
-  }
-  canvas.width = standinbPictureBase.width;
-  canvas.height = standinbPictureBase.height;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(standinbPictureBase, 0, 0);
-  ctx.drawImage(facePicture, 0, 0);
-};
+// キーワード検索には本名部のみ送るため括弧部と分割
+const charaName = computed(() => {
+  const name = charaDetail.value.name ?? '';
+  const i = name.indexOf('(');
+  return i >= 0 ? { base: name.slice(0, i), paren: name.slice(i) } : { base: name, paren: '' };
+});
 
-const showNextCharaDetail = async () => {
-  const currentIndex = props.items.findIndex((x) => x.chara_id === props.targetId);
-  if (currentIndex === -1) return;
-  const nextItem = props.items[currentIndex + 1];
-  if (!nextItem) {
-    window.alert('次のキャラが見つかりませんでした。');
-    return;
-  }
-  await changeChara(nextItem.chara_id);
-};
-const showPrevCharaDetail = async () => {
-  const currentIndex = props.items.findIndex((x) => x.chara_id === props.targetId);
-  if (currentIndex === -1) return;
-  const prevItem = props.items[currentIndex - 1];
-  if (!prevItem) {
-    window.alert('前のキャラが見つかりませんでした。');
-    return;
-  }
-  await changeChara(prevItem.chara_id);
-};
+const battleStats = computed(() => [
+  { key: 'hp', label: 'HP', value: charaDetail.value.sortTarget.hp },
+  { key: 'atk', label: 'ATK', value: charaDetail.value.sortTarget.atk },
+  { key: 'cri', label: 'CRI', value: charaDetail.value.sortTarget.cri },
+  { key: 'def', label: 'DEF', value: charaDetail.value.sortTarget.def },
+  { key: 'res', label: 'RES', value: charaDetail.value.sortTarget.res },
+  { key: 'agi', label: 'AGI', value: charaDetail.value.sortTarget.agi },
+  { key: 'pos', label: 'POS', value: charaDetail.value.sortTarget.pos },
+]);
 
-const changeChara = (charaId: string) => {
+const changeChara = (charaId: string | null) => {
+  if (!charaId) return;
   emit('changeTargetId', charaId);
-  nextTick(async () => {
-    state.standingPicture.clear();
-    if (state.showLargeImage) await changeStandingPicture();
-  });
+};
+
+const downloadChara = async () => {
+  if (!charaDetail.value.chara_id) return;
+  setDownloadMessage('ダウンロード中…');
+  await downloadCharacter(charaDetail.value);
 };
 </script>
 
 <template>
   <v-card
-    id="chara-detail-card"
-    @keydown.left.prevent="showPrevCharaDetail"
-    @keydown.right.prevent="showNextCharaDetail"
+    @keydown.left.prevent="changeChara(props.prevCharaId)"
+    @keydown.right.prevent="changeChara(props.nextCharaId)"
     class="focusable"
     tabindex="-1"
   >
     <v-card-title>
       <v-toolbar>
         <v-toolbar-title class="d-none d-sm-flex">
-          <span
-            class="text-cyan text-decoration-underline cursor-pointer"
-            @click="emit('clickKeyword', charaDetail.name.split('(')[0] ?? charaDetail.name)"
-            >{{ charaDetail.name.split('(')[0] ?? charaDetail.name }}</span
-          >
-          <span v-if="charaDetail.name.includes('(')">{{ `(${charaDetail.name.split('(')[1]}` }}</span>
+          <span class="text-cyan text-decoration-underline cursor-pointer" @click="emit('clickKeyword', charaName.base)">{{ charaName.base }}</span>
+          <span v-if="charaName.paren">{{ charaName.paren }}</span>
           <span>{{ `：${charaDetail.chara_id}` }}</span>
         </v-toolbar-title>
         <v-spacer />
-        <v-btn
-          class="mx-3"
-          @click="emit('clickDownload')"
-          variant="flat"
-          color="primary"
-          :disabled="props.loadingStatusMessage !== ''"
-          title="ダウンロード"
-        >
-          <span class="d-none d-sm-flex">
-            {{ props.workingCharaId === charaDetail.chara_id ? props.loadingStatusMessage : 'ダウンロード' }}
-          </span>
-          <v-icon :icon="mdiDownload" class="d-flex d-sm-none" />
-        </v-btn>
-        <v-btn variant="outlined" @click="showPrevCharaDetail" title="前のキャラ">＜＜</v-btn>
-        <v-btn variant="outlined" @click="showNextCharaDetail" title="次のキャラ">＞＞</v-btn>
+        <DownloadButton class="mx-3" :id="charaDetail.chara_id" requires-token :task="downloadChara" />
+        <v-btn variant="outlined" @click="changeChara(props.prevCharaId)" :disabled="!props.prevCharaId" title="前のキャラ">＜＜</v-btn>
+        <v-btn variant="outlined" @click="changeChara(props.nextCharaId)" :disabled="!props.nextCharaId" title="次のキャラ">＞＞</v-btn>
         <v-btn variant="outlined" @click="emit('clickEsc')" title="閉じる" class="mx-3">ESC</v-btn>
       </v-toolbar>
     </v-card-title>
@@ -121,49 +83,45 @@ const changeChara = (charaId: string) => {
         <v-col :order="state.showLargeImage ? 3 : 1" cols="12" :sm="state.showLargeImage ? 12 : 4" :lg="state.showLargeImage ? 12 : 3">
           <v-img
             v-if="!state.showLargeImage"
-            :src="`https://ancl.jp/img/game/chara/${props.targetId}/graphic/${props.targetId}_gr_t.jpg`"
+            :src="charaImage.webUrlOf(props.targetId, 'gr_t.jpg')"
             :alt="`${charaDetail.name}`"
-            @click="
-              async () => {
-                state.showLargeImage = true;
-                await changeStandingPicture();
-              }
-            "
+            @click="state.showLargeImage = true"
             class="rounded cursor-pointer"
-          />
+          >
+            <div class="d-flex align-end justify-end fill-height pa-2">
+              <v-icon :icon="mdiMagnifyPlusOutline" size="x-large" color="green" class="bg-white rounded-circle pa-1" />
+            </div>
+          </v-img>
           <v-img
             v-if="state.showLargeImage"
-            :src="`https://ancl.jp/img/game/chara/${props.targetId}/graphic/${props.targetId}_gr_it.jpg`"
+            :src="charaImage.webUrlOf(props.targetId, 'gr_it.jpg')"
             :alt="`${charaDetail.name}`"
             @click="state.showLargeImage = false"
             class="rounded cursor-pointer"
           />
-          <v-btn-toggle
-            v-if="state.showLargeImage"
-            v-model="state.selectedFaceImageSuffix"
-            @update:modelValue="changeStandingPicture"
-            mandatory
-            color="primary"
-            class="mt-5"
-          >
-            <v-btn value="st_01.png">01</v-btn>
-            <v-btn value="st_02.png">02</v-btn>
-            <v-btn value="st_03.png">03</v-btn>
-            <v-btn value="st_04.png">04</v-btn>
-            <v-btn value="st_05.png">05</v-btn>
-            <v-btn value="st_06.png">06</v-btn>
-            <v-btn value="st_07.png">07</v-btn>
-          </v-btn-toggle>
-          <canvas id="standing-picture" v-show="state.showLargeImage" style="width: 100%"></canvas>
+          <div v-if="state.showLargeImage" class="d-flex align-center ga-2 mt-5">
+            <v-label text="表情" class="text-h6 text-medium-emphasis" />
+            <v-btn-toggle v-model="state.selectedFaceImageSuffix" mandatory color="primary">
+              <v-btn value="st_01.png">01</v-btn>
+              <v-btn value="st_02.png">02</v-btn>
+              <v-btn value="st_03.png">03</v-btn>
+              <v-btn value="st_04.png">04</v-btn>
+              <v-btn value="st_05.png">05</v-btn>
+              <v-btn value="st_06.png">06</v-btn>
+              <v-btn value="st_07.png">07</v-btn>
+            </v-btn-toggle>
+          </div>
+          <!-- 立ち絵（体+顔をCSS合成） -->
+          <v-img v-if="state.showLargeImage" :src="charaImage.webUrlOf(props.targetId, 'st_99.png')">
+            <img :src="charaImage.webUrlOf(props.targetId, state.selectedFaceImageSuffix)" class="position-absolute top-0 left-0 w-100 h-100" />
+          </v-img>
         </v-col>
         <v-col :order="state.showLargeImage ? 1 : 2" cols="12" sm="8" :md="state.showLargeImage ? 5 : 3" lg="3">
+          <CharaStatusChips :charaId="props.targetId" class="mb-1" />
+          <CharaBattleAttributes :chara="charaDetail" />
           <li class="d-flex d-sm-none">
-            <span
-              class="text-cyan text-decoration-underline cursor-pointer"
-              @click="emit('clickKeyword', charaDetail.name.split('(')[0] ?? charaDetail.name)"
-              >{{ charaDetail.name.split('(')[0] ?? charaDetail.name }}</span
-            >
-            <span v-if="charaDetail.name.includes('(')">{{ `(${charaDetail.name.split('(')[1]}` }}</span>
+            <span class="text-cyan text-decoration-underline cursor-pointer" @click="emit('clickKeyword', charaName.base)">{{ charaName.base }}</span>
+            <span v-if="charaName.paren">{{ charaName.paren }}</span>
             <span>{{ `：${charaDetail.chara_id}` }}</span>
           </li>
           <ul>
@@ -193,20 +151,34 @@ const changeChara = (charaId: string) => {
                 >{{ charaDetail.profile?.illust }}</span
               >
             </li>
-            <li>誕生日：{{ charaDetail.profile?.birth }}</li>
+            <li>
+              誕生日：<span
+                class="text-cyan text-decoration-underline cursor-pointer"
+                @click="emit('clickProfileKeyword', charaDetail.profile?.birth?.split('月')[0] + '月')"
+                >{{ charaDetail.profile?.birth?.split('月')[0] }}月</span
+              >{{ charaDetail.profile?.birth?.split('月')[1] }}
+            </li>
             <li>身長：{{ charaDetail.profile?.height }}</li>
             <li>体重：{{ charaDetail.profile?.weight }}</li>
             <li>サイズ：{{ charaDetail.profile?.size }}</li>
           </ul>
         </v-col>
         <v-col :order="state.showLargeImage ? 2 : 3" cols="12" :md="state.showLargeImage ? 7 : 5" lg="6">
+          <v-radio-group v-model="statMode" inline density="compact" hide-details class="mb-2">
+            <v-radio v-for="m in statModeLabels" :key="m.value" :label="m.label" :value="m.value" />
+          </v-radio-group>
+          <div class="d-flex flex-wrap ga-1 mb-2">
+            <v-chip v-for="s in battleStats" :key="s.key" size="small" variant="tonal" label>
+              <span class="text-medium-emphasis mr-1">{{ s.label }}</span>
+              <span class="font-weight-bold">{{ s.value }}</span>
+            </v-chip>
+          </div>
           <ul>
             <li>{{ charaDetail.profile?.flavor }}</li>
             <li>{{ charaDetail.profile?.details }}</li>
           </ul>
         </v-col>
         <v-col order="4" cols="12">
-          <!-- ボイス -->
           <v-expansion-panels>
             <v-expansion-panel title="ボイス" color="primary">
               <v-expansion-panel-text>
@@ -221,27 +193,18 @@ const changeChara = (charaId: string) => {
                   <SoundPlayButton :charaId="props.targetId" voiceType="誕生日" />
                 </div>
                 <div class="d-flex flex-wrap my-1">
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m1" textId="m1" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m2" textId="m2" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m3" textId="m3" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m4" textId="m4" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m5" textId="m5" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m6" textId="m6" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m7" textId="m7" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m8" textId="m8" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m9" textId="m9" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m10" textId="m10" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m11" textId="m11" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m12" textId="m12" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m13" textId="m13" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m14" textId="m14" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m15" textId="m15" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m16" textId="m16" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m17" textId="m17" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m18" textId="m18" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m19" textId="m19" :textMap="charaDetail.msg" />
-                  <SoundPlayButton :charaId="props.targetId" voiceType="m20" textId="m20" :textMap="charaDetail.msg" />
+                  <SoundPlayButton
+                    v-for="i in 20"
+                    :key="`m${i}`"
+                    :charaId="props.targetId"
+                    :voiceType="`m${i}`"
+                    :textId="`m${i}`"
+                    :textMap="charaDetail.msg"
+                  />
                   <SoundPlayButton :charaId="props.targetId" voiceType="V413" textId="V413" />
+                  <SoundPlayButton :charaId="props.targetId" voiceType="イベントミッション" />
+                  <SoundPlayButton :charaId="props.targetId" voiceType="イベントステージ" />
+                  <SoundPlayButton :charaId="props.targetId" voiceType="イベントトップ" />
                 </div>
                 <div class="d-flex flex-wrap my-1">
                   <SoundPlayButton :charaId="props.targetId" voiceType="入手時" imgSuffix="word.png" />

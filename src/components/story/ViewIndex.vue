@@ -1,89 +1,80 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
-import { ZipDir } from '@/scripts/zip';
-import type { Section, StoryElement } from '@/@types';
-import { downloadStory, downloadBg, fillStoryData } from '@/repository/downloadStory';
+import type { Section } from '@/@types';
+import { runSectionDownload } from '@/repository/download';
+import { DialogWriter } from '@/repository/download/writer';
+import BulkDownloadStart from '@/components/bulkDownload/BulkDownloadStart.vue';
+import { eventAssets } from '@/repository/assetMap';
+import { isFullyUnlocked } from '@/scripts/anclData';
 import { useMainStore } from '@/store';
 import { useDownloadHistoryStore } from '@/store/downloadHistoryStore';
+import { useAdditionalDataStore } from '@/store/additionalDataStore';
+import DownloadButton from '@/components/DownloadButton.vue';
+import { setDownloadMessage } from '@/composables/useDownloadAction';
+
+type StoryTab = 'main' | 'event' | 'limited';
 
 const mainStore = useMainStore();
 const downloadHistoryStore = useDownloadHistoryStore();
+const additionalDataStore = useAdditionalDataStore();
 
 const state = reactive({
+  tab: 'main' as StoryTab,
   filterNotDownloadedYet: false,
-  loadStatusMessage: '',
-  workingSectionId: '',
 });
 
-const items = computed(() =>
-  Object.values(mainStore.stories?.main?.section ?? {})
-    .sort((a, b) => a.order - b.order)
-    .filter((x) => (state.filterNotDownloadedYet ? !downloadHistoryStore.sectionDownloadHistory.find((h) => h.id === x.section_id) : true))
-    .map((x) => ({
-      ...x,
-      title: `${x.chapter} ${x.name} : ${x.section_id}`,
-      subtitle: '',
-    })),
+// メインだけ別domain・別enableStidMap・章付きタイトル・orderソート
+const isMain = computed(() => state.tab === 'main');
+const target = computed(() =>
+  state.tab === 'main' ? mainStore.stories?.main : state.tab === 'event' ? mainStore.stories?.event : mainStore.stories?.limited,
+);
+const enableStidMap = computed(() => (isMain.value ? mainStore.mainEnableStidMap : mainStore.eventEnableStidMap));
+const domain = computed((): 'main' | 'event' => (isMain.value ? 'main' : 'event'));
+const storyList = computed(() => target.value?.story ?? {});
+
+const bulkDownloadLabel = computed(() =>
+  state.tab === 'main' ? 'メインストーリー' : state.tab === 'event' ? 'イベントストーリー' : '限定ストーリー',
+);
+const bulkDownloadSections = computed(() =>
+  Object.values(target.value?.section ?? {}).map((s) => {
+    const stories = storyList.value[s.section_id] ?? [];
+    return {
+      id: s.section_id,
+      name: s.name,
+      fullyUnlocked: isFullyUnlocked(stories, enableStidMap.value),
+    };
+  }),
 );
 
-const enableStidMap = computed(() => {
-  if (!mainStore.stories?.main?.story) return new Map();
-  if (!mainStore.initData?.result.player_data.story.main) return new Map();
-
-  const [sectionId, opened] = Object.entries(mainStore.initData?.result.player_data.story.main)[0];
-
-  return new Map(
-    Object.entries(mainStore.stories?.main?.story).flatMap(([section, stories]) =>
-      stories
-        .filter((s) => {
-          if (section.substring(2) < sectionId.substring(2)) return true;
-          if (section.substring(2) === sectionId.substring(2) && s.order <= opened) return true;
-          return false;
-        })
-        .map((s) => [s.st_id, s]),
-    ),
-  );
+const items = computed(() => {
+  const sections = Object.values(target.value?.section ?? {});
+  sections.sort((a, b) => (isMain.value ? a.order - b.order : a.section_id.localeCompare(b.section_id)));
+  return sections
+    .filter((x) => !state.filterNotDownloadedYet || !downloadHistoryStore.sectionDownloadedDateMap.has(x.section_id))
+    .map((x) => ({
+      ...x,
+      title: isMain.value ? `${x.chapter} ${x.name} : ${x.section_id}` : `${x.name} : ${x.section_id}`,
+      subtitle: '',
+    }));
 });
 
-const download = async (section: Section) => {
-  const tasks = new Array<Promise<unknown>>();
-  state.loadStatusMessage = '開始中…';
-  state.workingSectionId = section.section_id;
-
-  const zip = new ZipDir(section.name);
-
-  // ストーリー
-  state.loadStatusMessage = 'ストーリーデータのダウンロード中…';
-  const stories = mainStore.stories?.main.story[section.section_id];
+const downloadSection = async (section: Section) => {
+  const stories = storyList.value[section.section_id];
   if (!stories) {
-    state.loadStatusMessage = '【例外】ストーリーの取得失敗した。';
-    throw '【例外】ストーリーの取得失敗した。';
+    throw new Error('【例外】ストーリーの取得失敗した。');
   }
 
-  const storyElements = new Array<StoryElement>();
-  const filledStories = await fillStoryData(stories, enableStidMap.value);
-  for await (const s of filledStories) {
-    tasks.push(downloadStory(zip, s, section));
-    storyElements.push(...s.elements);
-  }
-
-  tasks.push(downloadBg(zip, storyElements));
-  tasks.push(zip.fileFromUrlAsync(`${section.section_id}.jpg`, `https://ancl.jp/img/game/event/section/${section.section_id}.jpg`));
-  // zipアーカイブ
-  state.loadStatusMessage = 'アーカイブなう…（時間かかるよ）';
-  await Promise.all(tasks);
-  const blob = await zip.end();
-
-  state.loadStatusMessage = 'リンク生成中…';
-  const a = document.createElement('a');
-  a.download = `エンクリ_${section.chapter}_${section.name}.zip`;
-  a.href = URL.createObjectURL(blob);
-  a.click();
-
-  downloadHistoryStore.pushSectionDownloadHistory(section.section_id);
-
-  state.loadStatusMessage = '';
-  state.workingSectionId = '';
+  await runSectionDownload(new DialogWriter(), {
+    section,
+    stories,
+    enableStidMap: enableStidMap.value,
+    domain: domain.value,
+    // イベント/限定はevent_idが必要
+    eventId: isMain.value ? undefined : mainStore.sectionEventIdMap.get(section.section_id),
+    storyAdditional: additionalDataStore.storyAdditionalData,
+    token: mainStore.token,
+    onStatus: setDownloadMessage,
+  });
 };
 </script>
 
@@ -108,50 +99,56 @@ const download = async (section: Section) => {
       </v-col>
     </v-row>
 
-    <!-- 検索 -->
-    <v-row dense align="center">
-      <v-col cols="auto">
-        <v-checkbox dense label="未ダウンロードのみ表示" v-model="state.filterNotDownloadedYet"></v-checkbox>
-      </v-col>
-    </v-row>
-
-    <!-- リスト -->
-    <v-row dense>
+    <v-row dense class="mt-3">
       <v-col>
-        <v-list :items="items ?? []" item-props>
-          <template v-slot:prepend="{ item }">
-            <v-img width="256" class="mx-2" :src="`https://ancl.jp/img/game/event/section/${item.section_id}.jpg`" />
-          </template>
-          <template v-slot:subtitle="{ item }">
-            <ul>
-              <li
-                v-for="story of mainStore.stories?.main?.story[item.section_id] ?? []"
-                :key="story.st_id"
-                :style="[enableStidMap.has(story.st_id) ? '' : { 'text-decoration': 'line-through' }]"
-              >
-                {{ story.st_id }} : {{ story.name }}
-              </li>
-            </ul>
-          </template>
-          <template v-slot:append="{ item }">
-            <v-container>
-              <v-row dense no-gutters>
-                <v-col>
-                  <v-btn @click="download(item)" color="success" :disabled="state.loadStatusMessage !== ''">{{
-                    state.workingSectionId === item.section_id ? state.loadStatusMessage : 'ダウンロード'
-                  }}</v-btn>
-                </v-col>
-              </v-row>
-              <v-row dense no-gutters>
-                <v-col>
-                  <p class="blue">
-                    {{ downloadHistoryStore.sectionDownloadHistory.find((x) => x.id === item.section_id)?.date ?? '-' }}
-                  </p>
-                </v-col>
-              </v-row>
-            </v-container>
-          </template>
-        </v-list>
+        <v-card>
+          <v-tabs v-model="state.tab" bg-color="primary">
+            <v-tab value="main">メインストーリー</v-tab>
+            <v-tab value="event">イベントストーリー</v-tab>
+            <v-tab value="limited">限定ストーリー</v-tab>
+          </v-tabs>
+          <v-card-title class="d-flex align-center ga-2 flex-wrap">
+            <v-checkbox v-model="state.filterNotDownloadedYet" density="compact" hide-details label="未ダウンロードのみ表示" />
+            <v-spacer />
+            <BulkDownloadStart :mode="{ kind: 'section', sections: bulkDownloadSections, domain, label: bulkDownloadLabel }" />
+          </v-card-title>
+          <v-list :items="items ?? []" item-props>
+            <template v-slot:prepend="{ item }">
+              <v-img width="256" class="mx-2" :src="eventAssets.sectionThumb(item.section_id)" />
+            </template>
+            <template v-slot:subtitle="{ item }">
+              <ul>
+                <li
+                  v-for="story of storyList[item.section_id] ?? []"
+                  :key="story.st_id"
+                  :style="[enableStidMap.has(story.st_id) ? '' : { 'text-decoration': 'line-through' }]"
+                >
+                  {{ story.st_id }} : {{ story.name }}
+                </li>
+              </ul>
+            </template>
+            <template v-slot:append="{ item }">
+              <v-container>
+                <v-row dense no-gutters>
+                  <v-col>
+                    <DownloadButton :id="item.section_id" requires-token :task="() => downloadSection(item)" />
+                  </v-col>
+                </v-row>
+                <v-row dense no-gutters>
+                  <v-col class="d-flex align-center gap-1">
+                    <p class="blue">{{ downloadHistoryStore.sectionDownloadedDateMap.get(item.section_id)?.date ?? '-' }}</p>
+                    <v-chip
+                      v-if="downloadHistoryStore.sectionDownloadedDateMap.get(item.section_id)?.complete === false"
+                      size="x-small"
+                      color="incomplete"
+                      >未完</v-chip
+                    >
+                  </v-col>
+                </v-row>
+              </v-container>
+            </template>
+          </v-list>
+        </v-card>
       </v-col>
     </v-row>
   </v-container>

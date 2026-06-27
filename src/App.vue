@@ -1,30 +1,67 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router';
-import { storage } from 'webextension-polyfill';
 import MainHeader from './components/MainHeader.vue';
+import MigrationDialog from './components/MigrationDialog.vue';
 import { useMainStore } from './store';
 import { useAdditionalDataStore } from './store/additionalDataStore';
-import { mdiCancel, mdiCheck } from '@mdi/js';
-import { onBeforeUnmount } from 'vue';
+import { useDownloadHistoryStore } from './store/downloadHistoryStore';
+import { mdiChevronUp } from '@mdi/js';
+import { ref, computed } from 'vue';
+import { useGoTo } from 'vuetify';
+import { checkMigrationNeeded } from '@/scripts/storageMigration';
+
 const route = useRoute();
+const goTo = useGoTo();
 const mainStore = useMainStore();
 const additionalDataStore = useAdditionalDataStore();
-mainStore.init();
-additionalDataStore.init();
+const downloadHistoryStore = useDownloadHistoryStore();
 
-// storage.localを監視し、変更があった時はmainStoreに反映する。
-// mainStoreにデータが揃っているときはリストア完了を通知する。
-storage.local.onChanged.addListener((changes) => {
-  for (const key of Object.keys(changes)) {
-    if (!changes[key].newValue) continue;
-    mainStore.$patch({ [key]: changes[key].newValue });
-  }
-  if (mainStore.loaded) {
-    mainStore.isAwaitGameData = false;
-  }
-});
+const showScrollTop = ref(false);
+const showMigrationDialog = ref(false);
+const initError = ref<string | null>(null);
 
-onBeforeUnmount(mainStore.cancelRestore);
+// presenceは_rawの有無のみで判定しdecodeしない
+const LOAD_FIELDS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'token', label: 'トークン' },
+  { key: 'initData', label: '初期データ' },
+  { key: 'specificVoice', label: '固有ボイス' },
+  { key: 'characters', label: 'キャラクター' },
+  { key: 'stories', label: 'ストーリー' },
+  { key: 'enemy', label: 'エネミー' },
+  { key: 'battleEvent', label: 'バトルイベント' },
+  { key: 'battleMain', label: 'バトルメイン' },
+  { key: 'battleLimited', label: 'バトル限定/外伝' },
+  { key: 'event', label: 'イベント情報' },
+  { key: 'radio', label: 'ラジオ' },
+  { key: 'voice', label: 'ASMR' },
+];
+const loadStatus = computed(() =>
+  LOAD_FIELDS.map((f) => {
+    const ok = mainStore.rawPresence[f.key];
+    return { label: f.label, ok, loading: !ok && mainStore.capturingFields.includes(f.key) };
+  }),
+);
+const pageReady = computed(() => (route.meta.requiredFields ?? []).every((k) => mainStore.rawPresence[k]));
+
+const onScroll = () => (showScrollTop.value = window.scrollY > 300);
+const handleMigrationComplete = () => {
+  showMigrationDialog.value = false;
+  window.location.reload();
+};
+
+(async () => {
+  try {
+    if (await checkMigrationNeeded()) {
+      showMigrationDialog.value = true;
+    } else {
+      await Promise.all([mainStore.init(), additionalDataStore.init(), downloadHistoryStore.init()]);
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    initError.value = msg;
+    console.error('初期化エラー:', e);
+  }
+})();
 </script>
 
 <template>
@@ -32,48 +69,58 @@ onBeforeUnmount(mainStore.cancelRestore);
     <v-app>
       <MainHeader />
       <v-main>
-        <v-container v-show="route.name?.toString() !== 'Player' && route.name?.toString() !== 'News' && !mainStore.loaded">
-          <v-row>
-            <v-col>
-              <v-card v-if="!mainStore.loaded && !mainStore.isAwaitGameData">
-                <v-card-title primary-title>🚨ヘッダーの情報更新ボタンを押すべき</v-card-title>
-              </v-card>
-              <v-card v-if="mainStore.isAwaitGameData">
-                <v-card-title primary-title>📡最新のゲームデータを待ち受け中…</v-card-title>
-                <v-card-text>
-                  <p>エンジェリックリンクを開いて「ゲームスタート」してください。</p>
-                  <ul>
-                    <li>
-                      <a href="https://play.games.dmm.com/game/angelic/" target="_blank" rel="noopener noreferrer">エンジェリックリンク</a>
-                    </li>
-                    <li>
-                      <a href="https://play.games.dmm.co.jp/game/angelicr/" target="_blank" rel="noopener noreferrer">エンジェリックリンクR🔞</a>
-                    </li>
-                  </ul>
-                  <details>
-                    <summary>ロード詳細</summary>
-                    <v-banner density="compact" :icon="mainStore.token ? mdiCheck : mdiCancel" text="トークン"></v-banner>
-                    <v-banner density="compact" :icon="mainStore.initData ? mdiCheck : mdiCancel" text="初期データ"></v-banner>
-                    <v-banner density="compact" :icon="mainStore.specificVoice ? mdiCheck : mdiCancel" text="固有ボイス"></v-banner>
-                    <v-banner density="compact" :icon="mainStore.characters ? mdiCheck : mdiCancel" text="キャラクター"></v-banner>
-                    <v-banner density="compact" :icon="mainStore.stories ? mdiCheck : mdiCancel" text="ストーリー"></v-banner>
-                    <v-banner density="compact" :icon="mainStore.enemy ? mdiCheck : mdiCancel" text="エネミー"></v-banner>
-                    <v-banner density="compact" :icon="mainStore.battleEvent ? mdiCheck : mdiCancel" text="バトルイベント"></v-banner>
-                    <v-banner density="compact" :icon="mainStore.radio ? mdiCheck : mdiCancel" text="ラジオ"></v-banner>
-                    <v-banner density="compact" :icon="mainStore.voice ? mdiCheck : mdiCancel" text="ASMR"></v-banner>
-                  </details>
-                </v-card-text>
-              </v-card>
-            </v-col>
-          </v-row>
-        </v-container>
+        <v-alert v-if="initError" type="error" variant="tonal" class="ma-4"> 初期化エラー: {{ initError }} </v-alert>
 
-        <Suspense v-show="route.name?.toString() === 'Player'">
-          <template #default>
-            <router-view></router-view>
-          </template>
-          <template #fallback>Loading...</template>
-        </Suspense>
+        <MigrationDialog v-if="showMigrationDialog" @migration-complete="handleMigrationComplete" />
+
+        <template v-if="!showMigrationDialog && !initError">
+          <v-container v-show="!pageReady">
+            <v-row>
+              <v-col>
+                <v-card v-if="!pageReady && !mainStore.isAwaitGameData">
+                  <v-card-title primary-title>🚨ヘッダーの情報更新ボタンを押すべき</v-card-title>
+                </v-card>
+                <v-card v-if="mainStore.isAwaitGameData">
+                  <v-card-title primary-title>📡最新のゲームデータを待ち受け中…</v-card-title>
+                  <v-card-text>
+                    <p>エンジェリックリンクを開いて「ゲームスタート」してください。</p>
+                    <ul>
+                      <li>
+                        <a href="https://play.games.dmm.com/game/angelic/" target="_blank" rel="noopener noreferrer">エンジェリックリンク</a>
+                      </li>
+                      <li>
+                        <a href="https://play.games.dmm.co.jp/game/angelicr/" target="_blank" rel="noopener noreferrer">エンジェリックリンクR🔞</a>
+                      </li>
+                    </ul>
+                    <div class="d-flex flex-wrap ga-1">
+                      <v-chip
+                        v-for="s in loadStatus"
+                        :key="s.label"
+                        size="x-small"
+                        variant="flat"
+                        :color="s.ok ? 'success' : s.loading ? 'info' : 'orange'"
+                      >
+                        <v-progress-circular v-if="s.loading" indeterminate size="10" width="2" class="mr-1" />
+                        {{ s.label }}
+                      </v-chip>
+                    </div>
+                    <p class="text-caption text-medium-emphasis mt-1 mb-0">
+                      ※ 固有ボイスは再取得できたときのみ上書きされます（取得できなくても以前の値を保持）。
+                    </p>
+                  </v-card-text>
+                </v-card>
+              </v-col>
+            </v-row>
+          </v-container>
+
+          <Suspense v-if="pageReady">
+            <template #default>
+              <router-view></router-view>
+            </template>
+            <template #fallback>Loading...</template>
+          </Suspense>
+        </template>
+        <v-fab v-model="showScrollTop" v-scroll="onScroll" :icon="mdiChevronUp" color="primary" size="large" app appear @click="goTo(0)" />
       </v-main>
     </v-app>
     <template #fallback>Loading...</template>

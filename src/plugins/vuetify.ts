@@ -9,7 +9,11 @@ export default createVuetify({
     themes: {
       dark: {
         colors: {
-          primary: colors.deepPurple.accent4,
+          primary: colors.deepPurple.lighten1,
+          background: colors.grey.darken4,
+          surface: colors.grey.darken3,
+          'surface-light': colors.grey.darken2,
+          incomplete: colors.lightBlue.lighten3,
         },
       },
     },

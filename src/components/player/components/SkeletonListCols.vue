@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
 import { type IUnzipper } from '@/scripts/zip';
-import { selectNext, selectPrev } from '@/scripts/selectConrol';
+import { selectNext, selectPrev } from '@/utils/selectControl';
 import { spine } from '@/spine-ts/3.7/spine-player';
 import '@/spine-ts/3.7/spine-player.css';
 

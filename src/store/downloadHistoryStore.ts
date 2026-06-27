@@ -1,34 +1,28 @@
-import dayjs from 'dayjs';
 import { defineStore } from 'pinia';
+import { downloadHistoryItem, sectionDownloadHistoryItem, type DownloadHistory } from '@/scripts/downloadHistory';
 
-const key_downloadHistory = 'downloadHistory';
-const key_sectionDownloadHistory = 'sectionDownloadHistory';
-
-type DownloadHistory = { id: string; date: string };
-type SectionDownloadHistory = { id: string; date: string };
+type DownloadHistoryEntry = { date: string; complete?: boolean };
 
 export const useDownloadHistoryStore = defineStore('downloadHistoryStore', {
   state: () => ({
-    downloadHistory: JSON.parse(localStorage.getItem(key_downloadHistory) ?? '[]') as Array<DownloadHistory>,
-    sectionDownloadHistory: JSON.parse(localStorage.getItem(key_sectionDownloadHistory) ?? '[]') as Array<SectionDownloadHistory>,
+    downloadHistory: [] as Array<DownloadHistory>,
+    sectionDownloadHistory: [] as Array<DownloadHistory>,
   }),
-  getters: {},
-  actions: {
-    pushDownloadHistory(charaId: string) {
-      this.downloadHistory.push({
-        id: charaId,
-        date: dayjs().format('YYYY/M/D HH:mm'),
-      });
-
-      localStorage.setItem(key_downloadHistory, JSON.stringify(this.downloadHistory));
+  getters: {
+    downloadedDateMap(): Map<string, DownloadHistoryEntry> {
+      return new Map(this.downloadHistory.map((h) => [h.id, { date: h.date, complete: h.complete }]));
     },
-    pushSectionDownloadHistory(sectionId: string) {
-      this.sectionDownloadHistory.push({
-        id: sectionId,
-        date: dayjs().format('YYYY/M/D HH:mm'),
-      });
-
-      localStorage.setItem(key_sectionDownloadHistory, JSON.stringify(this.sectionDownloadHistory));
+    sectionDownloadedDateMap(): Map<string, DownloadHistoryEntry> {
+      return new Map(this.sectionDownloadHistory.map((h) => [h.id, { date: h.date, complete: h.complete }]));
+    },
+  },
+  actions: {
+    async init() {
+      this.downloadHistory = await downloadHistoryItem.getValue();
+      this.sectionDownloadHistory = await sectionDownloadHistoryItem.getValue();
     },
   },
 });
+
+downloadHistoryItem.watch((v) => (useDownloadHistoryStore().downloadHistory = v));
+sectionDownloadHistoryItem.watch((v) => (useDownloadHistoryStore().sectionDownloadHistory = v));

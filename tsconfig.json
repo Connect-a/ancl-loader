@@ -1,11 +1,11 @@
 {
-  "files": [],
-  "references": [
-    {
-      "path": "./tsconfig.node.json"
-    },
-    {
-      "path": "./tsconfig.app.json"
-    }
-  ]
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "types": ["chrome", "wicg-file-system-access"]
+  },
+  "include": ["env.d.ts", "src/**/*", "src/**/*.vue", "src/**/*.json", ".wxt/wxt.d.ts"],
+  "exclude": ["src/**/__tests__/*", "_work", ".output"]
 }

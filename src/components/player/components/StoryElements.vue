@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { reactive, type CSSProperties, computed, watch, onMounted } from 'vue';
+import { reactive, type CSSProperties, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { storage } from '@wxt-dev/storage';
 import {
   mdiDockWindow,
   mdiWindowClose,
@@ -13,16 +14,18 @@ import {
   mdiCog,
 } from '@mdi/js';
 import type { StoryElement } from '@/@types';
-import { selectNext, selectPrev } from '@/scripts/selectConrol';
+import { selectNext, selectPrev } from '@/utils/selectControl';
 import { type IUnzipper } from '@/scripts/zip';
 
 type CardTheme = 'dark' | 'light';
 type CardStyle = {
-  fonSize: number;
+  fontSize: number;
   theme: CardTheme;
   width: string;
   opacity: number;
 };
+
+const playerCardStyleItem = storage.defineItem<CardStyle>('local:playerCardStyle');
 
 const toUrl = URL.createObjectURL;
 const props = defineProps<{
@@ -55,12 +58,14 @@ const state = reactive({
 
 const storySourceFileNames = computed(() => props.fileNames?.filter((x) => x.includes('source.json')) ?? []);
 
-// NOTE: ファイル名配列が空になった時にクリア
-watch(props.fileNames, async (v, _old) => {
-  if (v?.length) return;
-  state.target = '';
-  state.element = {} as StoryElement;
-});
+watch(
+  () => props.fileNames,
+  async (v, _old) => {
+    if (v?.length) return;
+    state.target = '';
+    state.element = {} as StoryElement;
+  },
+);
 
 onMounted(() => {
   setResizeObserver();
@@ -69,29 +74,23 @@ onMounted(() => {
 
 const getCard = () => document.getElementById('story-card');
 
-const saveStyle = () => {
-  localStorage.setItem(
-    'playerCardStyle',
-    JSON.stringify({
-      fonSize: state.fontSize,
-      theme: state.theme,
-      width: state.style.width,
-      opacity: state.style.opacity,
-    } as CardStyle),
-  );
+const saveStyle = async () => {
+  await playerCardStyleItem.setValue({
+    fontSize: state.fontSize,
+    theme: state.theme,
+    width: state.style.width,
+    opacity: state.style.opacity,
+  } as CardStyle);
 };
 
-const loadStyle = () => {
-  const style = JSON.parse(
-    localStorage.getItem('playerCardStyle') ??
-      JSON.stringify({
-        fonSize: 1,
-        theme: 'dark',
-        width: 'initial',
-        opacity: 1,
-      } as CardStyle),
-  ) as CardStyle;
-  state.fontSize = style.fonSize;
+const loadStyle = async () => {
+  const style = (await playerCardStyleItem.getValue()) ?? {
+    fontSize: 1,
+    theme: 'dark' as CardTheme,
+    width: 'initial',
+    opacity: 1,
+  };
+  state.fontSize = style.fontSize ?? 1;
   state.theme = style.theme;
   state.style.width = style.width;
   state.style.opacity = style.opacity;
@@ -110,6 +109,7 @@ const changeStoryElement = async () => {
   const targetVoice = `${state.target}/${text}`.replace('source.json', 'voice');
   const t = await props.zip.readFileAsBlobAsync(targetVoice);
   if (!t) return;
+  if (audio.src) URL.revokeObjectURL(audio.src);
   audio.src = toUrl(t);
   audio.play();
 };
@@ -154,7 +154,6 @@ const cardControll = {
   },
 };
 
-// カードリサイズ
 const resizeObserver = new ResizeObserver((entries) => {
   for (const entry of entries) {
     if (entry.target instanceof HTMLElement) {
@@ -167,6 +166,8 @@ const setResizeObserver = () => {
   const card = getCard();
   if (card) resizeObserver.observe(card);
 };
+
+onBeforeUnmount(() => resizeObserver.disconnect());
 
 const resetPosition = () => {
   state.float = false;
@@ -235,7 +236,7 @@ const resetPosition = () => {
         </option>
       </select>
       <section v-show="state.showControl">
-        <audio id="story-audio" :volume="props.volume / 100" controls></audio>
+        <audio id="story-audio" :volume="props.volume" controls></audio>
         <v-slider v-model="state.fontSize" :prepend-icon="mdiFormatSize" density="compact" min="0.05" max="3" step="0.01" hide-details />
         <v-slider v-model="state.style.opacity" :prepend-icon="mdiOpacity" density="compact" min="0.05" max="1" step="0.01" hide-details />
       </section>

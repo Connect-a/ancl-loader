@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue';
+import { reactive, ref, watchEffect } from 'vue';
 import { mdiArrowExpandHorizontal, mdiPlaySpeed } from '@mdi/js';
 
 export type VideoMedia = {
@@ -18,7 +18,12 @@ const state = reactive({
   volume: 1,
 });
 
-const srcUrl = computed(() => URL.createObjectURL(props.media.blob));
+const srcUrl = ref('');
+watchEffect((onCleanup) => {
+  const url = URL.createObjectURL(props.media.blob);
+  srcUrl.value = url;
+  onCleanup(() => URL.revokeObjectURL(url));
+});
 
 const emit = defineEmits<{
   clickExpand: [];
@@ -46,13 +51,13 @@ const onLoaded = () => {
   state.loopRange.splice(1, 1, state.duration);
 
   v.ontimeupdate = (_ev) => {
-    if (v.currentTime < state.loopRange[0]) v.currentTime = state.loopRange[0];
+    if (v.currentTime < state.loopRange[0]!) v.currentTime = state.loopRange[0]!;
 
-    if (v.currentTime > state.loopRange[1]) {
-      if (state.loop) v.currentTime = state.loopRange[0];
+    if (v.currentTime > state.loopRange[1]!) {
+      if (state.loop) v.currentTime = state.loopRange[0]!;
       if (!state.loop) {
         v.pause();
-        v.currentTime = state.loopRange[0];
+        v.currentTime = state.loopRange[0]!;
         state.playing = false;
       }
     }
@@ -65,7 +70,6 @@ const onLoaded = () => {
   };
 };
 
-// control
 const togglePlay = () => {
   state.playing = !state.playing;
   if (state.playing) getVideo().pause();
@@ -110,8 +114,6 @@ const pip = () => getVideo().requestPictureInPicture();
             @update:modelValue="setPlaybackRate"
             @click:prepend="() => setPlaybackRate(1)"
           />
-          <!-- <v-slider v-model="state.volume" :prepend-icon="mdiVolumeHigh" density="compact" min="0" :max="1" step="0.01"
-            hide-details /> -->
         </v-card-text>
         <v-card-actions class="pa-2">
           <v-btn size="x-small" variant="outlined" @click="pip" color="grey" title="ピクチャインピクチャ">PiP </v-btn>
@@ -119,6 +121,6 @@ const pip = () => getVideo().requestPictureInPicture();
         </v-card-actions>
       </v-card>
     </details>
-    <video :id="props.media.name" :src="srcUrl" style="width: 100%" loop autoplay @click="togglePlay" @dblclick="fullscreen" @loadeddata="onLoaded" />
+    <video :id="props.media.name" :src="srcUrl" class="w-100" loop autoplay @click="togglePlay" @dblclick="fullscreen" @loadeddata="onLoaded" />
   </figure>
 </template>

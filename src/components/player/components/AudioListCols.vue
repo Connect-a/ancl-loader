@@ -3,7 +3,7 @@ import { computed, reactive, watch } from 'vue';
 import { mdiChevronLeft, mdiChevronRight, mdiPlus } from '@mdi/js';
 import { type IUnzipper } from '@/scripts/zip';
 import AudioContainer from './AudioContainer.vue';
-import { selectNext, selectPrev } from '@/scripts/selectConrol';
+import { selectNext, selectPrev } from '@/utils/selectControl';
 
 type AudioMedia = {
   name: string;
@@ -74,7 +74,7 @@ const removeAudio = async (name: string) =>
 const playAudioAsync = (audio: HTMLAudioElement) =>
   new Promise<Event | void>((resolve, reject) => {
     audio.playbackRate = parseFloat(audio.dataset['playbackRate'] ?? '1');
-    audio.volume = (props.volume / 100) * parseFloat(audio.dataset['volume'] ?? '1');
+    audio.volume = props.volume * parseFloat(audio.dataset['volume'] ?? '1');
     audio.onended = resolve;
     audio.onerror = reject;
     audio.ontimeupdate = (_ev) => {
@@ -149,10 +149,10 @@ const togglePlaySelectedAudio = () => {
         <img
           v-if="state.messageImageMap.has(state.audio.selected.split('/').at(-1) ?? '')"
           :src="state.messageImageMap.get(state.audio.selected.split('/').at(-1) ?? '')"
-          style="width: 100%"
+          class="w-100"
           alt="メッセージ"
         />
-        <audio id="audio-sample" controls :volume="props.volume / 100" style="width: 100%" />
+        <audio id="audio-sample" controls :volume="props.volume" class="w-100" />
       </v-card-text>
       <v-card-actions>
         <v-btn v-show="state.audio.stack.length > 0 && !state.audio.playing" size="small" variant="outlined" @click="playAudioList" class="mx-2"

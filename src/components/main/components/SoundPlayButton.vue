@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import voice from '@/repository/voice.json';
-import molabLeft from '@/repository/molab_left.json';
+import voice from '@/repository/data/voice.json';
+import molabLeft from '@/repository/data/molab_left.json';
+import { charaImage, charaVoice } from '@/repository/assetMap';
 import { mdiPlayCircle } from '@mdi/js';
 
 const voiceMap = new Map(voice.map((x) => [x.type as string, x.id as string]));
@@ -21,11 +22,10 @@ const combinedTextMap = computed(() => ({
 }));
 
 const playbackVoice = async (charaId: string, voiceType: string) => {
-  const audio = new Audio(`https://ancl.jp/img/game/chara/${charaId}/voice/${voiceMap.get(voiceType)}.m4a`);
+  const audio = new Audio(charaVoice.webUrlOf(charaId, voiceMap.get(voiceType) ?? voiceType));
   audio.onended = audio.remove;
-  audio.onerror = (e) => {
+  audio.onerror = () => {
     window.alert(`ボイスの再生に失敗しました。ボイスが存在していない可能性があります。\ncode：${audio.error?.code}（${audio.error?.message}）`);
-    console.log({ e });
   };
   audio.oncanplay = audio.play;
 };
@@ -46,6 +46,6 @@ const playbackVoice = async (charaId: string, voiceType: string) => {
     class="border-sm rounded cursor-pointer"
     style="border-color: white !important; height: 3em"
     @click="playbackVoice(props.charaId, props.voiceType)"
-    :src="`https://ancl.jp/img/game/chara/${props.charaId}/graphic/${props.charaId}_${props.imgSuffix}`"
+    :src="charaImage.webUrlOf(props.charaId, props.imgSuffix)"
   />
 </template>

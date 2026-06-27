@@ -1,0 +1,142 @@
+[
+  {
+    "id": "N01JIW",
+    "name": "創造主",
+    "hasStandingPicture": true,
+    "hasVoices": true
+  },
+  {
+    "id": "N02VMC",
+    "name": "シスター",
+    "hasStandingPicture": false,
+    "hasVoices": true
+  },
+  {
+    "id": "N03HWB",
+    "name": "サタン",
+    "hasStandingPicture": true,
+    "hasVoices": true
+  },
+  {
+    "id": "N04VTA",
+    "name": "1号",
+    "hasStandingPicture": true,
+    "hasVoices": true
+  },
+  {
+    "id": "N05XDT",
+    "name": "2号",
+    "hasStandingPicture": true,
+    "hasVoices": true
+  },
+  {
+    "id": "N06BIQ",
+    "name": "3号",
+    "hasStandingPicture": true,
+    "hasVoices": true
+  },
+  {
+    "id": "N09BVS",
+    "name": "オル",
+    "hasStandingPicture": false,
+    "hasVoices": true,
+    "missingVoices": ["V920", "V939", "V940", "V941"]
+  },
+  {
+    "id": "N11DGH",
+    "name": "男性",
+    "hasStandingPicture": false,
+    "hasVoices": false
+  },
+  {
+    "id": "N13TDT",
+    "name": "女性",
+    "hasStandingPicture": false,
+    "hasVoices": false
+  },
+  {
+    "id": "N14LDJ",
+    "name": "男の子",
+    "hasStandingPicture": false,
+    "hasVoices": false
+  },
+  {
+    "id": "N15NJE",
+    "name": "女の子",
+    "hasStandingPicture": false,
+    "hasVoices": false
+  },
+  {
+    "id": "N10PRV",
+    "name": "ロス",
+    "hasStandingPicture": false,
+    "hasVoices": true,
+    "missingVoices": ["V920", "V939", "V940", "V941"]
+  },
+  {
+    "id": "N16QCQ",
+    "name": "酒場の女主人",
+    "hasStandingPicture": false,
+    "hasVoices": true
+  },
+  {
+    "id": "N26RST",
+    "name": "ギルド受付嬢",
+    "hasStandingPicture": false,
+    "hasVoices": true
+  },
+  {
+    "id": "N34PWQ",
+    "name": "フェンリル",
+    "hasStandingPicture": false,
+    "hasVoices": true
+  },
+  {
+    "id": "N35VIE",
+    "name": "ヨルムンガンド",
+    "hasStandingPicture": false,
+    "hasVoices": true
+  },
+  {
+    "id": "N36LBK",
+    "name": "ヘル",
+    "hasStandingPicture": false,
+    "hasVoices": true
+  },
+  {
+    "id": "N37TUR",
+    "name": "ロキ",
+    "hasStandingPicture": false,
+    "hasVoices": true
+  },
+  {
+    "id": "N39SKZ",
+    "name": "カオス",
+    "hasStandingPicture": false,
+    "hasVoices": true
+  },
+  {
+    "id": "N40MTU",
+    "name": "タナトス",
+    "hasStandingPicture": false,
+    "hasVoices": true
+  },
+  {
+    "id": "N41KZS",
+    "name": "ネメシス",
+    "hasStandingPicture": false,
+    "hasVoices": true
+  },
+  {
+    "id": "N42LEO",
+    "name": "ニュクス",
+    "hasStandingPicture": false,
+    "hasVoices": true
+  },
+  {
+    "id": "N43MVL",
+    "name": "クロノス",
+    "hasStandingPicture": false,
+    "hasVoices": true
+  }
+]

@@ -1,53 +1,49 @@
-import { storage } from 'webextension-polyfill';
 import { defineStore } from 'pinia';
-
-const key = 'additionalData';
-
-type AdditionalData = {
-  type: 'radio' | 'voice' | 'story';
-  charaId: string;
-  charaName: string;
-  stid: number;
-  storyId: string;
-};
+import { storage } from '@wxt-dev/storage';
+import { sendMessage } from '@/scripts/extMessage';
+import type { AdditionalRecord, StoryRecord, VoiceRecord } from '@/scripts/anclData';
 
 export const useAdditionalDataStore = defineStore('additionalDataStore', {
   state: () => ({
-    additionalData: [] as Array<AdditionalData>,
+    additionalData: [] as Array<AdditionalRecord>,
+    charaImportUrl: '',
   }),
   getters: {
-    radioAdditionalData: (state) => state.additionalData.filter((x) => x.type === 'radio'),
-    voiceAdditionalData: (state) => state.additionalData.filter((x) => x.type === 'voice'),
-    storyAdditionalData: (state) => state.additionalData.filter((x) => x.type === 'story'),
+    voiceAdditionalData: (state) => state.additionalData.filter((x): x is VoiceRecord => x.type === 'voice'),
+    storyAdditionalData: (state) => state.additionalData.filter((x): x is StoryRecord => x.type === 'story'),
   },
   actions: {
     async init() {
-      this.additionalData = ((await storage.local.get(key))?.additionalData ?? []) as Array<AdditionalData>;
+      const [add, url] = await storage.getItems(['local:additionalData', 'local:charaImportUrl']);
+      this.additionalData = (add?.value ?? []) as Array<AdditionalRecord>;
+      this.charaImportUrl = (url?.value as string) ?? '';
     },
-    async setAdditionalData(charaImportUrl: string) {
-      if (charaImportUrl) localStorage.setItem('charaImportUrl', charaImportUrl);
+    async setAdditionalData() {
+      if (!this.charaImportUrl) return;
+      await storage.setItem('local:charaImportUrl', this.charaImportUrl);
 
-      charaImportUrl = localStorage.getItem('charaImportUrl') ?? '';
-      const charaList = (await (await fetch(charaImportUrl)).text()).split('\n');
-      if (charaList.length <= 1) return;
+      try {
+        const response = await fetch(this.charaImportUrl);
+        if (!response.ok) {
+          console.warn(`additionalData fetch failed: ${response.status}`);
+          return;
+        }
+        const charaList = (await response.text()).split('\n');
+        if (charaList.length <= 1) return;
 
-      await storage.local.set({
-        additionalData: charaList.map((x) => {
-          const [charaId, charaName, stid, storyId] = x.split('_');
-          let t = 'story';
-          if (charaId === 'voice') t = 'voice';
-          if (charaId === 'radio') t = 'radio';
-          return {
-            type: t,
-            charaId,
-            charaName,
-            stid: Number(stid),
-            storyId,
-          } as AdditionalData;
-        }),
-      });
-      this.additionalData.splice(0);
-      this.additionalData.push(...(((await storage.local.get(key))?.additionalData ?? []) as Array<AdditionalData>));
+        const parsed = charaList.map((x): AdditionalRecord => {
+          const [c1 = '', c2 = '', c3 = '', c4 = ''] = x.split('_');
+          if (c1 === 'voice') return { type: 'voice', sectionId: c2, chId: Number(c3), chapterId: c4 };
+          return { type: c1 === 'radio' ? 'radio' : 'story', charaId: c1, charaName: c2, stid: Number(c3), storyId: c4 };
+        });
+        await sendMessage('additionalData/add', parsed);
+      } catch (e: unknown) {
+        console.warn('additionalData fetch error:', e);
+      }
     },
   },
+});
+
+storage.watch<Array<AdditionalRecord>>('local:additionalData', (v) => {
+  useAdditionalDataStore().additionalData = v ?? [];
 });

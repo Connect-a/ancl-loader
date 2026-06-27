@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue';
+import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
+import { storage } from '@wxt-dev/storage';
 import { mdiVolumeHigh, mdiArrowExpand, mdiCheckerboard, mdiChevronLeft, mdiChevronRight } from '@mdi/js';
-import { Unzipper } from '@/scripts/zip';
-import type { CharacterMetaData, StoryElement } from '@/@types';
+import { Unzipper, type IUnzipper } from '@/scripts/zip';
+import type { Character } from '@/scripts/character';
+import type { StoryElement } from '@/@types';
+
+type CharacterMetaData = Character & { id: string; voiceTextMap: Record<string, string> };
 import VideoContainer, { type VideoMedia } from './components/VideoContainer.vue';
 import SkeletonViewCols from './components/SkeletonListCols.vue';
 import AudioListCols from './components/AudioListCols.vue';
 import StoryElements from './components/StoryElements.vue';
-import { selectNext, selectPrev } from '@/scripts/selectConrol';
+import { selectNext, selectPrev } from '@/utils/selectControl';
+
+const volumeItem = storage.defineItem<number>('local:volume', { fallback: 0.5 });
 
 const toUrl = URL.createObjectURL;
 const msgMap = new Map<string, string>([
@@ -33,13 +39,15 @@ const msgMap = new Map<string, string>([
   ['m20', 'V410.m4a'],
 ]);
 
+const zip = shallowRef<IUnzipper>(new Unzipper());
+const zipInputRef = ref<HTMLInputElement | null>(null);
+const imageSampleRef = ref<HTMLImageElement | null>(null);
+
 const state = reactive({
-  zip: new Unzipper(),
   loadingNow: false,
   dragOn: false,
   name: '',
   audioTextMap: new Map<string, string>(),
-  messageImageMap: new Map<string, string>(),
   movie: {
     stack: new Array<VideoMedia>(),
     expands: new Set<string>(),
@@ -49,14 +57,16 @@ const state = reactive({
     expand: false,
     showChecker: true,
   },
-  story: {
-    elements: new Array<StoryElement>(),
-  },
-  volume: parseInt(localStorage.getItem('volume') ?? '50'),
+  volume: 0.5,
+});
+
+onMounted(async () => {
+  const volume = await volumeItem.getValue();
+  if (volume <= 1) state.volume = volume;
 });
 
 const fileNames = computed(() =>
-  state.zip.entries
+  zip.value.entries
     .filter((x) => !x.directory)
     .filter((x) => x.filename)
     .map((x) => x.filename)
@@ -68,11 +78,11 @@ const imageFileNames = computed(() => fileNames.value.filter((x) => x.includes('
 
 const readAllFiles = async (file: File) => {
   if (!file.name.includes('zip')) return;
-  await state.zip.initAsync(file);
-  // 音声の内容設定
-  for (const entry of state.zip.entries.filter((x) => x.filename?.includes('.json'))) {
+  const newZip = await Unzipper.open(file);
+  zip.value = newZip;
+  for (const entry of newZip.entries.filter((x) => x.filename?.includes('.json'))) {
     if (entry.filename.includes('source.json')) {
-      const source = await state.zip.readFileAsJsonAsync<Array<StoryElement>>(entry.filename);
+      const source = await newZip.readFileAsJsonAsync<Array<StoryElement>>(entry.filename);
       for (const t of source ?? []) {
         const vo = t.p1_chara_voice_text + t.p2_chara_voice_text + t.p3_chara_voice_text + t.p4_chara_voice_text + t.p5_chara_voice_text;
         if (!vo) continue;
@@ -82,12 +92,12 @@ const readAllFiles = async (file: File) => {
     }
 
     if (entry.filename.includes('meta.json')) {
-      const meta = (await state.zip.readFileAsJsonAsync<Array<CharacterMetaData>>(entry.filename)) ?? {};
+      const meta = (await newZip.readFileAsJsonAsync<Array<CharacterMetaData>>(entry.filename)) ?? {};
       if ('name' in meta) state.name = meta.name as string;
       if ('msg' in meta) {
         for (let i = 1; i <= 20; i++) {
           const key = `m${i}`;
-          state.audioTextMap.set(msgMap.get(key) ?? '', (meta.msg as Record<string, string>)[key]);
+          state.audioTextMap.set(msgMap.get(key) ?? '', (meta.msg as Record<string, string>)[key] ?? '');
         }
       }
 
@@ -101,16 +111,17 @@ const readAllFiles = async (file: File) => {
 };
 
 const selectImage = async () => {
-  const t = await state.zip.readFileAsBlobAsync(state.image.selected);
+  const t = await zip.value.readFileAsBlobAsync(state.image.selected);
   if (!t) return;
-  const e = document.getElementById('image-sample') as HTMLImageElement;
+  const e = imageSampleRef.value;
   if (!e) return;
+  if (e.src) URL.revokeObjectURL(e.src);
   e.src = toUrl(t);
 };
 const addMovie = async (name: string) =>
   state.movie.stack.push({
     name,
-    blob: (await state.zip.readFileAsBlobAsync(name)) ?? new Blob(),
+    blob: (await zip.value.readFileAsBlobAsync(name)) ?? new Blob(),
   });
 const addAllMovie = async () => {
   state.movie.stack.splice(0);
@@ -131,16 +142,12 @@ const toggleMovieExpand = (name: string) => {
   }
 };
 
-// 読み込みまわり
 const clear = () => {
-  state.zip.entries.splice(0);
-  state.story.elements.splice(0);
+  zip.value = new Unzipper();
   state.image.selected = '';
   state.movie.stack.splice(0);
   state.audioTextMap.clear();
-  //
-  const fileInput = document.getElementById('zipInput') as HTMLInputElement;
-  fileInput.value = '';
+  if (zipInputRef.value) zipInputRef.value.value = '';
   const player = document.getElementById('spine-player');
   while (player?.firstChild) player.firstChild.remove();
 };
@@ -154,11 +161,11 @@ const loadItems = async (files: FileList | undefined | null) => {
   if (!files) return;
   if (files.length === 0) return;
   state.loadingNow = true;
-  await readAllFiles(files[0]);
+  await readAllFiles(files[0]!);
   state.loadingNow = false;
 };
 
-const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
+const storeVolume = async () => await volumeItem.setValue(state.volume);
 </script>
 
 <template>
@@ -173,7 +180,15 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
               <li>画像の表示</li>
               <li>ストーリーの簡易再生</li>
             </ul>
-            <v-slider v-model="state.volume" :prepend-icon="mdiVolumeHigh" :min="0" :max="100" hide-details @update:modelValue="storeVolume" />
+            <v-slider
+              v-model="state.volume"
+              :prepend-icon="mdiVolumeHigh"
+              :min="0"
+              :max="1"
+              :step="0.01"
+              hide-details
+              @update:modelValue="storeVolume"
+            />
           </v-card-text>
         </v-card>
       </v-col>
@@ -185,22 +200,22 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
           class="drop-target"
           :class="{ 'drag-enter': state.dragOn }"
         >
-          <v-card-text style="text-align: center">
+          <v-card-text class="text-center">
             <v-progress-circular v-show="state.loadingNow" indeterminate />
-            <p v-show="!state.loadingNow" style="text-align: center">ここにzipをドロップ</p>
+            <p v-show="!state.loadingNow" class="text-center">ここにzipをドロップ</p>
           </v-card-text>
           <v-card-actions>
-            <input type="file" @input="onInput" accept=".zip" id="zipInput" />
+            <input type="file" @input="onInput" accept=".zip" ref="zipInputRef" />
             <v-btn size="small" variant="outlined" @click="clear">読み込み結果のクリア</v-btn>
           </v-card-actions>
         </v-card>
       </v-col>
     </v-row>
     <v-row dense>
-      <SkeletonViewCols :zip="state.zip" :file-names="fileNames" />
+      <SkeletonViewCols :zip="zip" :file-names="fileNames" />
     </v-row>
     <v-row dense>
-      <AudioListCols :zip="state.zip" :chara-name="state.name" :file-names="fileNames" :volume="state.volume" :audio-text-map="state.audioTextMap" />
+      <AudioListCols :zip="zip" :chara-name="state.name" :file-names="fileNames" :volume="state.volume" :audio-text-map="state.audioTextMap" />
     </v-row>
     <v-row dense>
       <v-col cols="3">
@@ -250,7 +265,7 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
       </v-col>
       <v-col cols="9" v-show="state.image.selected" class="ml-auto">
         <img
-          id="image-sample"
+          ref="imageSampleRef"
           alt="画像サンプル"
           :style="{
             maxHeight: state.image.expand ? 'unset' : '320px',
@@ -290,14 +305,14 @@ const storeVolume = () => localStorage.setItem('volume', `${state.volume}`);
     </v-row>
     <v-row dense>
       <v-col v-for="media in state.movie.stack" :key="media.name" :cols="state.movie.expands.has(media.name) ? 12 : 6">
-        <VideoContainer :media="media" :volume="state.volume / 100" @click-expand="toggleMovieExpand(media.name)" />
+        <VideoContainer :media="media" :volume="state.volume" @click-expand="toggleMovieExpand(media.name)" />
       </v-col>
     </v-row>
 
     <!-- ストーリー -->
     <v-row dense v-show="fileNames.some((x) => x.includes('source.json'))">
       <v-col cols="6">
-        <StoryElements :zip="state.zip" :file-names="fileNames" :volume="state.volume" />
+        <StoryElements :zip="zip" :file-names="fileNames" :volume="state.volume" />
       </v-col>
     </v-row>
   </v-container>

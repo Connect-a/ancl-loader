@@ -26,7 +26,7 @@ const emit = defineEmits<{
 
 watch(
   () => [props.volume, state.volume],
-  () => (state.audio.volume = (props.volume / 100) * state.volume),
+  () => (state.audio.volume = props.volume * state.volume),
 );
 
 const setAudioEvent = (audio: HTMLAudioElement) => {
@@ -37,13 +37,13 @@ const setAudioEvent = (audio: HTMLAudioElement) => {
   };
 
   audio.ontimeupdate = (_ev) => {
-    if (audio.currentTime < state.loopRange[0]) audio.currentTime = state.loopRange[0];
+    if (audio.currentTime < state.loopRange[0]!) audio.currentTime = state.loopRange[0]!;
 
-    if (audio.currentTime > state.loopRange[1]) {
-      if (state.loop) audio.currentTime = state.loopRange[0];
+    if (audio.currentTime > state.loopRange[1]!) {
+      if (state.loop) audio.currentTime = state.loopRange[0]!;
       if (!state.loop) {
         audio.pause();
-        audio.currentTime = state.loopRange[0];
+        audio.currentTime = state.loopRange[0]!;
         state.playing = false;
       }
     }
@@ -57,7 +57,6 @@ const setAudioEvent = (audio: HTMLAudioElement) => {
   };
 };
 
-// control
 const play = () => {
   state.playing = true;
   state.audio.play();
@@ -87,7 +86,7 @@ const onClickClose = () => {
 onMounted(() => {
   state.audio = document.getElementById(props.media.name) as HTMLAudioElement;
   setAudioEvent(state.audio);
-  state.audio.volume = props.volume / 100;
+  state.audio.volume = props.volume;
   state.audio.src = URL.createObjectURL(props.media.blob);
   state.audio.id = props.media.name;
 });

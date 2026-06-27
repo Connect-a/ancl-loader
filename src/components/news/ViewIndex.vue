@@ -1,5 +1,3 @@
-<script setup lang="ts"></script>
-
 <template>
   <v-container>
     <v-row>
@@ -9,14 +7,15 @@
         </v-card>
       </v-col>
     </v-row>
+
     <v-row>
       <v-col>
-        <iframe id="bottom-contents" src="https://support.angelic-link.jp/news/" style="width: 1160px; height: 640px"></iframe>
+        <iframe src="https://support.angelic-link.jp/news/" style="width: 100%; height: 640px; border: 0"></iframe>
       </v-col>
     </v-row>
     <v-row>
       <v-col>
-        <iframe scrolling="no" id="bottom-contents" src="https://ancl.jp/html/main_bottom/" style="width: 1160px; height: 640px"></iframe>
+        <iframe src="https://ancl.jp/html/main_bottom/" style="width: 100%; height: 640px; border: 0"></iframe>
       </v-col>
     </v-row>
   </v-container>

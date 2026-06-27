@@ -36,7 +36,7 @@ RSSでリリースの通知を受けとることできる。
 ## ◆使用法
 - Releasesの最新版を落として任意のフォルダに解凍しておく。
   - https://github.com/Connect-a/ancl-loader/releases
-  - dist-mainフォルダの名前は変えていい。
+  - 解凍してできたフォルダの名前は変えていい。
   - アップデートがあった場合、解凍したzipの内容を元のフォルダに上書きすること。
     - 上書き保存するとダウンロード履歴が保持される。
 - 「chrome://extensions/」を開く。
@@ -57,5 +57,5 @@ RSSでリリースの通知を受けとることできる。
 - V413のボイスリスト
   - [molab_left.json](src\repository\molab_left.json)
   - https://ancl.jp/img/game/asset/text/molab/molab_left_[シーズンID].json
-    - シーズンID ⇒ 「s50」等
+    - シーズンID ⇒ 「s60」等
     - https://ancl.jp/game/res/breed_season/[id]

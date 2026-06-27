@@ -1,9 +1,8 @@
-// ストーリー
 export type Story = {
   adult_type: number;
   img: string;
   name: string;
-  open?: { like: number }; // キャラだけ
+  open?: { like: number }; // キャラのみ
   order: number;
   st_id: number;
   chapter: string;
@@ -26,40 +25,38 @@ export type AllStories = {
   limited: { section: Sections; story: Stories };
 };
 
-// キャラクターメタデータ
-export type CharacterMetaData = Character & {
-  id: string;
-  voiceTextMap: { [index: string]: string };
-};
-
-// キャラクター
-export type Character = {
-  chara_id: string;
-  name: string;
-  kana: string;
-  msg: { [index: string]: string };
-  profile: {
-    birth: string;
-    cv_name: string;
-    details: string;
-    flavor: string;
-    group: string;
-    height: string;
-    illust: string;
-    size: string;
-    weight: string;
-  };
-  order: number;
-  dmg_type: number; // 1:物理 2:魔法
-  category: number; // 1:アタッカー 2:サポーター 3:ヒーラー 4:タンク
-  ele_type: number; // 1:日 2:月 3:火 4:水 5:木 6:金 7:土
-};
-
-export type Characters = { chara_data: { [index: string]: Character } };
-
 export type SpecificVoice = { chara_id: string; voice_id: string };
 
-export type StoryElement = {
+// p{n}_*スロットフィールドの語幹（n=1..5）
+type StorySlotFieldName =
+  | 'img_type'
+  | 'img_id'
+  | 'img_text'
+  | 'img_pos'
+  | 'img_pos_x'
+  | 'img_pos_y'
+  | 'chara_type'
+  | 'chara_emotion'
+  | 'chara_pos'
+  | 'chara_size'
+  | 'chara_direction'
+  | 'chara_voice_text'
+  | 'chara_voice_id'
+  | 'chara_emoticon_id'
+  | 'chara_emoticon_pos_x'
+  | 'chara_emoticon_pos_y'
+  | 'chara_motion_type'
+  | 'chara_motion_times'
+  | 'chara_slide_type'
+  | 'chara_slide_direction'
+  | 'effect_start'
+  | 'effect_under1'
+  | 'effect_under2'
+  | 'sound_start';
+
+type StorySlotFields = { [K in `p${1 | 2 | 3 | 4 | 5}_${StorySlotFieldName}`]: string };
+
+export type StoryElement = StorySlotFields & {
   text: string;
   speaker: string;
   backlog_icon_id: string;
@@ -86,129 +83,14 @@ export type StoryElement = {
   bg_sound_start: string;
   bg_bgm: string;
   bg_env_sound: string;
-  p1_img_type: string;
-  p1_img_id: string;
-  p1_img_text: string;
-  p1_img_pos: string;
-  p1_img_pos_x: string;
-  p1_img_pos_y: string;
-  p1_chara_type: string;
-  p1_chara_emotion: string;
-  p1_chara_pos: string;
-  p1_chara_size: string;
-  p1_chara_direction: string;
-  p1_chara_voice_text: string;
-  p1_chara_voice_id: string;
-  p1_chara_emoticon_id: string;
-  p1_chara_emoticon_pos_x: string;
-  p1_chara_emoticon_pos_y: string;
-  p1_chara_motion_type: string;
-  p1_chara_motion_times: string;
-  p1_chara_slide_type: string;
-  p1_chara_slide_direction: string;
-  p1_effect_start: string;
-  p1_effect_under1: string;
-  p1_effect_under2: string;
-  p1_sound_start: string;
-  p2_img_type: string;
-  p2_img_id: string;
-  p2_img_text: string;
-  p2_img_pos: string;
-  p2_img_pos_x: string;
-  p2_img_pos_y: string;
-  p2_chara_type: string;
-  p2_chara_emotion: string;
-  p2_chara_pos: string;
-  p2_chara_size: string;
-  p2_chara_direction: string;
-  p2_chara_voice_text: string;
-  p2_chara_voice_id: string;
-  p2_chara_emoticon_id: string;
-  p2_chara_emoticon_pos_x: string;
-  p2_chara_emoticon_pos_y: string;
-  p2_chara_motion_type: string;
-  p2_chara_motion_times: string;
-  p2_chara_slide_type: string;
-  p2_chara_slide_direction: string;
-  p2_effect_start: string;
-  p2_effect_under1: string;
-  p2_effect_under2: string;
-  p2_sound_start: string;
-  p3_img_type: string;
-  p3_img_id: string;
-  p3_img_text: string;
-  p3_img_pos: string;
-  p3_img_pos_x: string;
-  p3_img_pos_y: string;
-  p3_chara_type: string;
-  p3_chara_emotion: string;
-  p3_chara_pos: string;
-  p3_chara_size: string;
-  p3_chara_direction: string;
-  p3_chara_voice_text: string;
-  p3_chara_voice_id: string;
-  p3_chara_emoticon_id: string;
-  p3_chara_emoticon_pos_x: string;
-  p3_chara_emoticon_pos_y: string;
-  p3_chara_motion_type: string;
-  p3_chara_motion_times: string;
-  p3_chara_slide_type: string;
-  p3_chara_slide_direction: string;
-  p3_effect_start: string;
-  p3_effect_under1: string;
-  p3_effect_under2: string;
-  p3_sound_start: string;
-  p4_img_type: string;
-  p4_img_id: string;
-  p4_img_text: string;
-  p4_img_pos: string;
-  p4_img_pos_x: string;
-  p4_img_pos_y: string;
-  p4_chara_type: string;
-  p4_chara_emotion: string;
-  p4_chara_pos: string;
-  p4_chara_size: string;
-  p4_chara_direction: string;
-  p4_chara_voice_text: string;
-  p4_chara_voice_id: string;
-  p4_chara_emoticon_id: string;
-  p4_chara_emoticon_pos_x: string;
-  p4_chara_emoticon_pos_y: string;
-  p4_chara_motion_type: string;
-  p4_chara_motion_times: string;
-  p4_chara_slide_type: string;
-  p4_chara_slide_direction: string;
-  p4_effect_start: string;
-  p4_effect_under1: string;
-  p4_effect_under2: string;
-  p4_sound_start: string;
-  p5_img_type: string;
-  p5_img_id: string;
-  p5_img_text: string;
-  p5_img_pos: string;
-  p5_img_pos_x: string;
-  p5_img_pos_y: string;
-  p5_chara_type: string;
-  p5_chara_emotion: string;
-  p5_chara_pos: string;
-  p5_chara_size: string;
-  p5_chara_direction: string;
-  p5_chara_voice_text: string;
-  p5_chara_voice_id: string;
-  p5_chara_emoticon_id: string;
-  p5_chara_emoticon_pos_x: string;
-  p5_chara_emoticon_pos_y: string;
-  p5_chara_motion_type: string;
-  p5_chara_motion_times: string;
-  p5_chara_slide_type: string;
-  p5_chara_slide_direction: string;
-  p5_effect_start: string;
-  p5_effect_under2: string;
-  p5_sound_start: string;
   movie_text: string;
+  // speaker{1,2}_* は「ふる転」ストーリーのみ存在。発見キャラの本名解決に使う
+  speaker1_id?: string;
+  speaker1_name?: string;
+  speaker2_id?: string;
+  speaker2_name?: string;
 };
 
-// エネミー
 export type Enemy = {
   [index: string]: {
     detail: string;
@@ -218,15 +100,31 @@ export type Enemy = {
   };
 };
 
+export type GameSettings = {
+  lv_max: number;
+  chara_rank_max: number;
+  [key: string]: unknown;
+};
+
+export type PlayerChara = {
+  chara_id: string;
+  lv: number;
+  exp: number;
+  rarity: number; // 現在レアリティ（覚醒後）
+  overlap: number; // 天衣
+  rank: number;
+  stuff: number[];
+  like_lv: number;
+  like_exp: number;
+  skill: { s1: number; s2: number; s3: number; s4: number };
+  order: number;
+};
+
 export type InitData = {
   result: {
+    settings: GameSettings;
     player_data: {
-      chara: {
-        [index: string]: {
-          chara_id: string;
-          like_lv: number;
-        };
-      };
+      chara: { [index: string]: PlayerChara };
       story: {
         main: { [index: string]: number };
         event: { [index: string]: string };
@@ -234,6 +132,7 @@ export type InitData = {
         chara: { [index: string]: number };
       };
       voice: Array<string>;
+      items_awake?: { [charaId: string]: number }; // 聖典（覚醒素材）の所持数
     };
     resources: {
       chara: string;
@@ -246,7 +145,18 @@ export type InitData = {
   };
 };
 
-// イベント
+// 聖典(type=5)は周回報酬としてawake（メイン/旧イベント）かreward[]のtype5（限定リバイバル等）に入る。clear_rewardは初回ボーナスなので対象外
+export type BattleReward = { id: string; num: number; type: number };
+export type BattleAwake = BattleReward;
+export type BattleStage = {
+  name: string;
+  awake?: BattleAwake;
+  reward?: Array<BattleReward>;
+  lv?: number;
+  consume?: number;
+};
+
+// battleEvent: /game/res/battle_event
 export type BattleEvent = {
   [index: string]: {
     dungeons: {
@@ -255,10 +165,46 @@ export type BattleEvent = {
       };
     };
     event_id: string;
+    stages?: { [stageId: string]: BattleStage };
+    rb_stages?: unknown;
   };
 };
 
-// ラジオ
+// ダンジョン（クエストを束ねる上位概念）
+export type BattleDungeon = {
+  name: string;
+  data?: { normal?: { stages_list?: Array<string> }; hard?: { stages_list?: Array<string> } };
+  limit?: { type?: number; start_time: number; end_time: number }; // 限定/外伝の開催期間
+};
+
+// battleMain: /game/res/battle_main
+export type BattleMain = {
+  stages: { [stageId: string]: BattleStage };
+  dungeons?: { [dungeonId: string]: BattleDungeon };
+};
+
+// battleLimited: /game/res/battle_limited
+export type BattleLimited = {
+  [index: string]: {
+    order: number;
+    stages: { [stageId: string]: BattleStage };
+    dungeons?: { [dungeonId: string]: BattleDungeon };
+  };
+};
+
+// event: /game/res/event。キーはEVxxx（battleEventと対応）
+export type EventInfo = {
+  [eventId: string]: {
+    name: string;
+    start_time: number;
+    end_time: number;
+    change_time: number;
+    event_id: string;
+    chara_id1?: string;
+    chara_id2?: string;
+  };
+};
+
 export type Radio = {
   radio_guide: {
     [index: string]: {
@@ -270,7 +216,6 @@ export type Radio = {
   };
 };
 
-// ASMR
 export type Voice = {
   all: {
     chapter: {
